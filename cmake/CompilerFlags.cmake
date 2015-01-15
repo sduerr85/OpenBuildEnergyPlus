@@ -108,3 +108,6 @@ ELSEIF ( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel" )
     ADD_CXX_DEBUG_DEFINITIONS("/Qtrapuv") # ??? Initializes variables with NaN
     
 ENDIF () # COMPILER TYPE
+
+#ADD_CXX_DEFINITIONS("-std=c++11 -g3") # Enable C++11 features in g++
+ADD_CXX_DEFINITIONS("-std=c++11 -O3 -s TOTAL_MEMORY=100000000 -s AGGRESSIVE_VARIABLE_ELIMINATION=1") # Enable C++11 features in g++

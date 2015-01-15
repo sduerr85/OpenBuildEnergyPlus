@@ -232,7 +232,7 @@ EnergyPlusPgm( std::string filepath )
 // Enable floating point exceptions
 #ifndef NDEBUG
 #ifdef __unix__
-	feenableexcept( FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+	//feenableexcept( FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 #endif
 #endif
 

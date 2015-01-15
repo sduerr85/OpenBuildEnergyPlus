@@ -18,6 +18,7 @@
 
 // C++ Headers
 #include <cassert>
+#include <cstddef>
 
 namespace ObjexxFCL {
 
