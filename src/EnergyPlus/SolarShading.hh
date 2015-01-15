@@ -360,6 +360,12 @@ namespace SolarShading {
 	);
 
 	int
+		SurfaceScheduledConvectiveHeatGain(
+		int const SurfNum, // Surface number
+		int const ConstNum // Construction number
+		);
+
+	int
 	SurfaceScheduledSolarInc(
 		int const SurfNum, // Surface number
 		int const ConstNum // Construction number

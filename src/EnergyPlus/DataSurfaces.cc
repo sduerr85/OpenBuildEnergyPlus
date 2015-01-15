@@ -289,6 +289,7 @@ namespace DataSurfaces {
 	int TotOSCM( 0 ); // Total number of Other Side Conditions Model Blocks.
 	int TotExtVentCav( 0 );
 	int TotSurfIncSolSSG( 0 ); // Total number of scheduled surface gains for incident solar radiation on surface
+	int TotSurfConHeaSSG(0); // Total number of scheduled surface gains for convective heat gain on surface
 	int TotFenLayAbsSSG( 0 ); // Total number of scheduled surface gains for absorbed solar radiation in window layers
 	int Corner( 0 ); // Which corner is specified as the first vertice
 	int MaxVerticesPerSurface( 4 ); // Maximum number of vertices allowed for a single surface (default -- can go higher)
@@ -433,6 +434,7 @@ namespace DataSurfaces {
 	FArray1D< ConvectionCoefficient > UserExtConvectionCoeffs;
 	FArray1D< ShadingVertexData > ShadeV;
 	FArray1D< ExtVentedCavityStruct > ExtVentedCavity;
+	FArray1D< SurfaceConvectiveHeatGain > SurfConHeaSSG; // Added by TSN for QSS
 	FArray1D< SurfaceSolarIncident > SurfIncSolSSG;
 	FArray1D< FenestrationSolarAbsorbed > FenLayAbsSSG;
 

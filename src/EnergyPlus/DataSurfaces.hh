@@ -272,8 +272,9 @@ namespace DataSurfaces {
 	extern int TotOSC; // Total number of Other Side Coefficient Blocks
 	extern int TotOSCM; // Total number of Other Side Conditions Model Blocks.
 	extern int TotExtVentCav;
+	extern int TotSurfConHeaSSG; // Total number of scheduled surface gains for convective heat transfer.  // Added by TSN for QSS
 	extern int TotSurfIncSolSSG; // Total number of scheduled surface gains for incident solar radiation on surface
-	extern int TotFenLayAbsSSG; // Total number of scheduled surface gains for absorbed solar radiation in window layers
+	extern int TotFenLayAbsSSG; // Total number of scheduled surface gains for absorbed solar radiation in window layers  // Added by TSN for QSS
 	extern int Corner; // Which corner is specified as the first vertice
 	extern int MaxVerticesPerSurface; // Maximum number of vertices allowed for a single surface (default -- can go higher)
 
@@ -2429,6 +2430,37 @@ namespace DataSurfaces {
 
 	};
 
+	// Added by TSN for QSS
+	struct SurfaceConvectiveHeatGain
+	{
+		// Members
+		std::string Name;
+		int SurfPtr; // surface pointer
+		int ConstrPtr; // construction pointer
+		int SchedPtr; // schedule pointer
+
+		// Default Constructor
+		SurfaceConvectiveHeatGain() :
+			SurfPtr(0),
+			ConstrPtr(0),
+			SchedPtr(0)
+		{}
+
+		// Member Constructor
+		SurfaceConvectiveHeatGain(
+			std::string const & Name,
+			int const SurfPtr, // surface pointer
+			int const ConstrPtr, // construction pointer
+			int const SchedPtr // schedule pointer
+			) :
+			Name(Name),
+			SurfPtr(SurfPtr),
+			ConstrPtr(ConstrPtr),
+			SchedPtr(SchedPtr)
+		{}
+
+	};
+
 	struct FenestrationSolarAbsorbed
 	{
 		// Members
@@ -2474,6 +2506,7 @@ namespace DataSurfaces {
 	extern FArray1D< ConvectionCoefficient > UserExtConvectionCoeffs;
 	extern FArray1D< ShadingVertexData > ShadeV;
 	extern FArray1D< ExtVentedCavityStruct > ExtVentedCavity;
+	extern FArray1D< SurfaceConvectiveHeatGain > SurfConHeaSSG;
 	extern FArray1D< SurfaceSolarIncident > SurfIncSolSSG;
 	extern FArray1D< FenestrationSolarAbsorbed > FenLayAbsSSG;
 

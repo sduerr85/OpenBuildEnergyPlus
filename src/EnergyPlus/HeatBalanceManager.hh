@@ -159,16 +159,15 @@ namespace HeatBalanceManager {
 	ProcessZoneData(
 		std::string const & cCurrentModuleObject,
 		int const ZoneLoop,
-		FArray1_string const & cAlphaArgs,
+		FArray1S_string cAlphaArgs,
 		int & NumAlphas,
-		FArray1< Real64 > const & rNumericArgs,
+		FArray1S< Real64 > rNumericArgs,
 		int & NumNumbers,
-		FArray1_bool const & lNumericFieldBlanks, //Unused
-		FArray1_bool const & lAlphaFieldBlanks,
-		FArray1_string const & cAlphaFieldNames,
-		FArray1_string const & cNumericFieldNames, //Unused
-		bool & ErrorsFound // If errors found in input
-	);
+		FArray1S_bool lNumericFieldBlanks,
+		FArray1S_bool lAlphaFieldBlanks,
+		FArray1S_string cAlphaFieldNames,
+		FArray1S_string cNumericFieldNames,
+		bool & ErrorsFound ); // If errors found in input
 
 	// End of Get Input subroutines for the HB Module
 	//******************************************************************************
@@ -228,6 +227,12 @@ namespace HeatBalanceManager {
 		int & ConstrNum, // Counter for Constructions
 		bool & ErrorsFound // If errors found in input
 	);
+
+	void
+		CheckScheduledConvectiveHeatGainSurfaces(int const ZoneNum); // Zone number for which error check will be performed
+
+	void
+		GetScheduledConvectiveHeatGainSurfaces(bool & ErrorsFound); // If errors found in input
 
 	void
 	GetScheduledSurfaceGains( bool & ErrorsFound ); // If errors found in input

@@ -211,6 +211,7 @@ namespace HeatBalanceSurfaceManager {
 		// The air heat balance must be called before the temperature history
 		// updates because there may be a radiant system in the building
 		if ( firstTime ) DisplayString( "Calculate Air Heat Balance" );
+		// Disabled by TSN for QSS
 		ManageAirHeatBalance();
 
 		// IF NECESSARY, do one final "average" heat balance pass.  This is only
@@ -3276,7 +3277,7 @@ namespace HeatBalanceSurfaceManager {
 				// That's probably not correct, but how correct is it to assume that no solar is absorbed anywhere
 				// in the zone?
 				if ( FirstCalcZone( ZoneNum ) ) {
-					ShowWarningError( "ComputeIntSWAbsorbFactors: Sum of area times inside solar absorption for all surfaces is zero in Zone: " + Zone( ZoneNum ).Name );
+					ShowWarningError( "ComputeIntSWAbsorbFactors: Sum of area times inside solar absorption " "for all surfaces is zero in Zone: " + Zone( ZoneNum ).Name );
 					FirstCalcZone( ZoneNum ) = false;
 				}
 				VMULT( ZoneNum ) = 0.0;
@@ -3589,7 +3590,7 @@ namespace HeatBalanceSurfaceManager {
 							EMSConstructActuatorChecked( SurfNum, Surface( SurfNum ).EMSConstructionOverrideValue ) = true;
 							if ( Construct( Surface( SurfNum ).Construction ).NumHistories != Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).NumHistories ) {
 								//thow warning, but allow
-								ShowWarningError( "InitEMSControlledConstructions: EMS Construction State Actuator may be unrealistic, incompatible CTF timescales are being used." );
+								ShowWarningError( "InitEMSControlledConstructions: EMS Construction State Actuator may be unrealistic, " "incompatible CTF timescales are being used." );
 								ShowContinueError( "Construction named = " + Construct( Surface( SurfNum ).Construction ).Name + " has CTF timesteps = " + TrimSigDigits( Construct( Surface( SurfNum ).Construction ).NumHistories ) );
 								ShowContinueError( "While construction named = " + Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).Name + " has CTF timesteps = " + TrimSigDigits( Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).NumHistories ) );
 								ShowContinueError( "Transient heat transfer modeling may not be valid for surface name = " + Surface( SurfNum ).Name + ", and the simulation continues" );
@@ -3597,10 +3598,10 @@ namespace HeatBalanceSurfaceManager {
 							}
 							if ( Construct( Surface( SurfNum ).Construction ).NumCTFTerms != Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).NumCTFTerms ) {
 								//thow warning, but allow
-								ShowWarningError( "InitEMSControlledConstructions: EMS Construction State Actuator may be unrealistic, incompatible CTF terms are being used." );
+								ShowWarningError( "InitEMSControlledConstructions: EMS Construction State Actuator may be unrealistic, " "incompatible CTF terms are being used." );
 								ShowContinueError( "Construction named = " + Construct( Surface( SurfNum ).Construction ).Name + " has number of CTF terms = " + TrimSigDigits( Construct( Surface( SurfNum ).Construction ).NumCTFTerms ) );
 								ShowContinueError( "While construction named = " + Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).Name + " has number of CTF terms = " + TrimSigDigits( Construct( Surface( SurfNum ).EMSConstructionOverrideValue ).NumCTFTerms ) );
-								ShowContinueError( "The actuator is allowed but the transient heat transfer modeling may not be valid for surface name = " + Surface( SurfNum ).Name + ", and the simulation continues" );
+								ShowContinueError( "The actuator is allowed but the transient heat transfer modeling may not be valid for" " surface name = " + Surface( SurfNum ).Name + ", and the simulation continues" );
 
 							}
 
@@ -3652,7 +3653,7 @@ namespace HeatBalanceSurfaceManager {
 							}
 
 						} else if ( Surface( SurfNum ).HeatTransferAlgorithm == HeatTransferModel_HAMT ) { // don't allow
-							ShowSevereError( "InitEMSControlledConstructions: EMS Construction State Actuator not available with Heat transfer algorithm CombinedHeatAndMoistureFiniteElement." );
+							ShowSevereError( "InitEMSControlledConstructions: EMS Construction State Actuator not available with " "Heat transfer algorithm CombinedHeatAndMoistureFiniteElement." );
 							ShowContinueError( "This actuator is not allowed for surface name = " + Surface( SurfNum ).Name + ", and the simulation continues without the override" );
 							EMSConstructActuatorChecked( SurfNum, Surface( SurfNum ).EMSConstructionOverrideValue ) = true;
 							EMSConstructActuatorIsOkay( SurfNum, Surface( SurfNum ).EMSConstructionOverrideValue ) = false;
@@ -4877,6 +4878,7 @@ CalcHeatBalanceInsideSurf( Optional_int_const ZoneToResimulate ) // if passed in
 	using namespace DataTimings;
 	using WindowEquivalentLayer::EQLWindowOutsideEffectiveEmiss;
 	using SwimmingPool::SimSwimmingPool;
+	using SolarShading::SurfaceScheduledConvectiveHeatGain; // added by TSN for QSS
 
 	// Locals
 	// SUBROUTINE ARGUMENT DEFINITIONS:
@@ -5207,9 +5209,27 @@ CalcHeatBalanceInsideSurf( Optional_int_const ZoneToResimulate ) // if passed in
 							if ( surface.HeatTransferAlgorithm == HeatTransferModel_EMPD ) {
 								CalcMoistureBalanceEMPD( SurfNum, TempSurfInTmp( SurfNum ), TH22, MAT( ZoneNum ), TempSurfInSat );
 							}
+							// Added by TSN for QSS
+							// Do not perform any calculation if surface is scheduled for scheduled convective heat gains.
+							// Use conventional calculation if convective heat gain  is not scheduled.
+							int SurfSchIdx  = SurfaceScheduledConvectiveHeatGain(SurfNum, ConstrNum);	
 							//Pre-calculate a few terms
-							Real64 const TempTerm( CTFConstInPart( SurfNum ) + QRadThermInAbs( SurfNum ) + QRadSWInAbs( SurfNum ) + HConvIn( SurfNum ) * RefAirTemp( SurfNum ) + QHTRadSysSurf( SurfNum ) + QHWBaseboardSurf( SurfNum ) + QSteamBaseboardSurf( SurfNum ) + QElecBaseboardSurf( SurfNum ) + NetLWRadToSurf( SurfNum ) );
-							Real64 const TempDiv( 1.0 / ( Construct( ConstrNum ).CTFInside( 0 ) + HConvIn( SurfNum ) + IterDampConst ) );
+							// Commented by TSN for QSS
+							// Real64 const TempTerm(CTFConstInPart(SurfNum) + QRadThermInAbs(SurfNum) + QRadSWInAbs(SurfNum) + HConvIn(SurfNum) * RefAirTemp(SurfNum) + QHTRadSysSurf(SurfNum) + QHWBaseboardSurf(SurfNum) + QSteamBaseboardSurf(SurfNum) + QElecBaseboardSurf(SurfNum) + NetLWRadToSurf(SurfNum));
+							Real64 TempTerm;
+							Real64 TempDiv;
+							if (SurfSchIdx != 0){
+								// Note that GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = HConvIn * (RefAirTemp - TempSurfInTemp). 
+								// We only handle the CTF cases for CFD we will need to do the same scheme.
+								// Real64 Term11 = GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr);
+								TempTerm = (CTFConstInPart(SurfNum) + QRadThermInAbs(SurfNum) + QRadSWInAbs(SurfNum) + GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) + QHTRadSysSurf(SurfNum) + QHWBaseboardSurf(SurfNum) + QSteamBaseboardSurf(SurfNum) + QElecBaseboardSurf(SurfNum) + NetLWRadToSurf(SurfNum));
+								TempDiv = (1.0 / (Construct(ConstrNum).CTFInside(0) + IterDampConst));
+							}
+							else{
+								TempTerm = (CTFConstInPart(SurfNum) + QRadThermInAbs(SurfNum) + QRadSWInAbs(SurfNum) + HConvIn(SurfNum) * RefAirTemp(SurfNum) + QHTRadSysSurf(SurfNum) + QHWBaseboardSurf(SurfNum) + QSteamBaseboardSurf(SurfNum) + QElecBaseboardSurf(SurfNum) + NetLWRadToSurf(SurfNum));
+								TempDiv = (1.0 / (Construct(ConstrNum).CTFInside(0) + HConvIn(SurfNum) + IterDampConst));
+							}
+
 							// Calculate the current inside surface temperature
 							if ( ( ! surface.IsPool ) || ( ( surface.IsPool ) && ( abs( QPoolSurfNumerator( SurfNum ) ) < SmallNumber ) && ( abs( PoolHeatTransCoefs( SurfNum )) < SmallNumber ) ) ) {
 								TempSurfInTmp( SurfNum ) = ( TempTerm + Construct( ConstrNum ).CTFSourceIn( 0 ) * QsrcHist( SurfNum, 1 ) + IterDampConst * TempInsOld( SurfNum ) + Construct( ConstrNum ).CTFCross( 0 ) * TH11 ) * TempDiv; // Constant part of conduction eq (history terms) | LW radiation from internal sources | SW radiation from internal sources | Convection from surface to zone air | Net radiant exchange with other zone surfaces | Heat source/sink term for radiant systems | (if there is one present) | Radiant flux from high temp radiant heater | Radiant flux from a hot water baseboard heater | Radiant flux from a steam baseboard heater | Radiant flux from an electric baseboard heater | Iterative damping term (for stability) | Current conduction from | the outside surface | Coefficient for conduction (current time) | Convection and damping term

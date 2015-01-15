@@ -155,7 +155,7 @@ namespace HVACManager {
 	// Functions
 
 	void
-	ManageHVAC()
+		ManageHVAC()
 	{
 
 		// SUBROUTINE INFORMATION:
@@ -224,15 +224,19 @@ namespace HVACManager {
 		using ManageElectricPower::ManageElectricLoadCenters;
 		using InternalHeatGains::UpdateInternalGainValues;
 		using ZoneEquipmentManager::CalcAirFlowSimple;
+		using ZoneEquipmentManager::GetZoneEquipment;
+		using DataSurfaces::TotSurfConHeaSSG;
+		using ZoneTempPredictorCorrector::GetZoneAirSetPoints;
+		using ZoneTempPredictorCorrector::InitZoneAirSetPoints;
 
 		// Locals
 		// SUBROUTINE ARGUMENT DEFINITIONS:
 		// na
 
 		// SUBROUTINE PARAMETER DEFINITIONS:
-		static gio::Fmt EndOfHeaderFormat( "('End of Data Dictionary')" ); // End of data dictionary marker
-		static gio::Fmt EnvironmentStampFormat( "(a,',',a,3(',',f7.2),',',f7.2)" ); // Format descriptor for environ stamp
-		static gio::Fmt fmtLD( "*" );
+		static gio::Fmt EndOfHeaderFormat("('End of Data Dictionary')"); // End of data dictionary marker
+		static gio::Fmt EnvironmentStampFormat("(a,',',a,3(',',f7.2),',',f7.2)"); // Format descriptor for environ stamp
+		static gio::Fmt fmtLD("*");
 
 		// INTERFACE BLOCK SPECIFICATIONS:
 		// na
@@ -244,296 +248,560 @@ namespace HVACManager {
 
 		// SUBROUTINE LOCAL VARIABLE DECLARATIONS:
 		Real64 PriorTimeStep; // magnitude of time step for previous history terms
-		Real64 ZoneTempChange( 0.0 ); // change in zone air temperature from timestep t-1 to t
+		Real64 ZoneTempChange(0.0); // change in zone air temperature from timestep t-1 to t
 		int NodeNum;
 		bool ReportDebug;
-		static bool TriggerGetAFN( true );
+		static bool TriggerGetAFN(true);
+		static bool firstFlagQSS(true);
 		int ZoneNum;
-		static bool PrintedWarmup( false );
+		static bool PrintedWarmup(false);
 
-		static bool MyEnvrnFlag( true );
-		static bool InitVentReportFlag( true );
-		static bool DebugNamesReported( false );
+		static bool MyEnvrnFlag(true);
+		static bool InitVentReportFlag(true);
+		static bool DebugNamesReported(false);
 
-		static int ZTempTrendsNumSysSteps( 0 );
-		static int SysTimestepLoop( 0 );
+		static int ZTempTrendsNumSysSteps(0);
+		static int SysTimestepLoop(0);
 		bool DummyLogical;
 
 		// Formats
-		static gio::Fmt Format_10( "('node #   Temp   MassMinAv  MassMaxAv TempSP      MassFlow       MassMin       ','MassMax        MassSP    Press        Enthal     HumRat Fluid Type')" );
-		static gio::Fmt Format_11( "('node #   Name')" );
-		static gio::Fmt Format_20( "(1x,I3,1x,F8.2,2(2x,F8.3),2x,F8.2,4(1x,F13.2),2x,F8.0,2x,F11.2,2x,F9.5,2x,A)" );
-		static gio::Fmt Format_30( "(1x,I3,5x,A)" );
+		static gio::Fmt Format_10("('node #   Temp   MassMinAv  MassMaxAv TempSP      MassFlow       MassMin       ','MassMax        MassSP    Press        Enthal     HumRat Fluid Type')");
+		static gio::Fmt Format_11("('node #   Name')");
+		static gio::Fmt Format_20("(1x,I3,1x,F8.2,2(2x,F8.3),2x,F8.2,4(1x,F13.2),2x,F8.0,2x,F11.2,2x,F9.5,2x,A)");
+		static gio::Fmt Format_30("(1x,I3,5x,A)");
 
-		//SYSTEM INITIALIZATION
-		if ( TriggerGetAFN ) {
-			TriggerGetAFN = false;
-			DisplayString( "Initializing HVAC" );
-			ManageAirflowNetworkBalance(); // first call only gets input and returns.
-		}
+		// Added by TSN for QSS
+		if (TotSurfConHeaSSG != 0){
 
-		ZT = MAT;
-		// save for use with thermal comfort control models (Fang, Pierce, and KSU)
-		ZTAVComf = ZTAV;
-		ZoneAirHumRatAvgComf = ZoneAirHumRatAvg;
-		ZTAV = 0.0;
-		ZoneAirHumRatAvg = 0.0;
-		PrintedWarmup = false;
-		if ( Contaminant.CO2Simulation ) {
-			OutdoorCO2 = GetCurrentScheduleValue( Contaminant.CO2OutdoorSchedPtr );
-			ZoneAirCO2Avg = 0.0;
-		}
-		if ( Contaminant.GenericContamSimulation ) {
-			OutdoorGC = GetCurrentScheduleValue( Contaminant.GenericContamOutdoorSchedPtr );
-			if ( allocated( ZoneAirGCAvg ) ) ZoneAirGCAvg = 0.0;
-		}
-
-		if ( BeginEnvrnFlag && MyEnvrnFlag ) {
-			ResetNodeData();
-			AirLoopsSimOnce = false;
-			MyEnvrnFlag = false;
-			InitVentReportFlag = true;
-			NumOfSysTimeStepsLastZoneTimeStep = 1;
-			PreviousTimeStep = TimeStepZone;
-		}
-		if ( ! BeginEnvrnFlag ) {
-			MyEnvrnFlag = true;
-		}
-
-		SysTimeElapsed = 0.0;
-		TimeStepSys = TimeStepZone;
-		FirstTimeStepSysFlag = true;
-		ShortenTimeStepSys = false;
-		UseZoneTimeStepHistory = true;
-		PriorTimeStep = TimeStepZone;
-		NumOfSysTimeSteps = 1;
-		FracTimeStepZone = TimeStepSys / TimeStepZone;
-
-		ManageEMS( emsCallFromBeginTimestepBeforePredictor ); //calling point
-
-		SetOutAirNodes();
-
-		ManageRefrigeratedCaseRacks();
-
-		//ZONE INITIALIZATION  'Get Zone Setpoints'
-		ManageZoneAirUpdates( iGetZoneSetPoints, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-		if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iGetZoneSetPoints, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-		ManageHybridVentilation();
-
-		CalcAirFlowSimple();
-		if ( SimulateAirflowNetwork > AirflowNetworkControlSimple ) {
-			RollBackFlag = false;
-			ManageAirflowNetworkBalance( false );
-		}
-
-		SetHeatToReturnAirFlag();
-
-		SysDepZoneLoadsLagged = SysDepZoneLoads;
-
-		UpdateInternalGainValues( true, true );
-
-		ManageZoneAirUpdates( iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-		if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-		SimHVAC();
-
-		if ( AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && ! WarmupFlag ) {
-			RunOptCondEntTemp = true;
-			while ( RunOptCondEntTemp ) {
-				SimHVAC();
+			//SYSTEM INITIALIZATION
+			if (TriggerGetAFN) {
+				TriggerGetAFN = false;
+				DisplayString("Initializing HVAC");
+				//ManageAirflowNetworkBalance(); // first call only gets input and returns.
 			}
-		}
 
-		ManageWaterInits();
+			ZT = MAT;
+			// save for use with thermal comfort control models (Fang, Pierce, and KSU)
+			ZTAVComf = ZTAV;
+			ZoneAirHumRatAvgComf = ZoneAirHumRatAvg;
+			ZTAV = 0.0;
+			ZoneAirHumRatAvg = 0.0;
+			PrintedWarmup = false;
+			if (Contaminant.CO2Simulation) {
+				OutdoorCO2 = GetCurrentScheduleValue(Contaminant.CO2OutdoorSchedPtr);
+				ZoneAirCO2Avg = 0.0;
+			}
+			if (Contaminant.GenericContamSimulation) {
+				OutdoorGC = GetCurrentScheduleValue(Contaminant.GenericContamOutdoorSchedPtr);
+				if (allocated(ZoneAirGCAvg)) ZoneAirGCAvg = 0.0;
+			}
 
-		// Only simulate once per zone timestep; must be after SimHVAC
-		if ( FirstTimeStepSysFlag && MetersHaveBeenInitialized ) {
-			ManageDemand();
-		}
+			if (BeginEnvrnFlag && MyEnvrnFlag) {
+				ResetNodeData();
+				AirLoopsSimOnce = false;
+				MyEnvrnFlag = false;
+				InitVentReportFlag = true;
+				NumOfSysTimeStepsLastZoneTimeStep = 1;
+				PreviousTimeStep = TimeStepZone;
+			}
+			if (!BeginEnvrnFlag) {
+				MyEnvrnFlag = true;
+			}
 
-		BeginTimeStepFlag = false; // At this point, we have been through the first pass through SimHVAC so this needs to be set
-
-		ManageZoneAirUpdates( iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-		if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-		if ( ZoneTempChange > MaxZoneTempDiff && ! KickOffSimulation ) {
-			//determine value of adaptive system time step
-			// model how many system timesteps we want in zone timestep
-			ZTempTrendsNumSysSteps = int( ZoneTempChange / MaxZoneTempDiff + 1.0 ); // add 1 for truncation
-			NumOfSysTimeSteps = min( ZTempTrendsNumSysSteps, LimitNumSysSteps );
-			//then determine timestep length for even distribution, protect div by zero
-			if ( NumOfSysTimeSteps > 0 ) TimeStepSys = TimeStepZone / NumOfSysTimeSteps;
-			TimeStepSys = max( TimeStepSys, MinTimeStepSys );
-			UseZoneTimeStepHistory = false;
-			ShortenTimeStepSys = true;
-		} else {
-			NumOfSysTimeSteps = 1;
+			SysTimeElapsed = 0.0;
+			TimeStepSys = TimeStepZone;
+			FirstTimeStepSysFlag = true;
+			ShortenTimeStepSys = false;
 			UseZoneTimeStepHistory = true;
-		}
-
-		if ( UseZoneTimeStepHistory ) PreviousTimeStep = TimeStepZone;
-		for ( SysTimestepLoop = 1; SysTimestepLoop <= NumOfSysTimeSteps; ++SysTimestepLoop ) {
-
-			if ( TimeStepSys < TimeStepZone ) {
-
-				ManageHybridVentilation();
-				CalcAirFlowSimple( SysTimestepLoop );
-				if ( SimulateAirflowNetwork > AirflowNetworkControlSimple ) {
-					RollBackFlag = false;
-					ManageAirflowNetworkBalance( false );
-				}
-
-				UpdateInternalGainValues( true, true );
-
-				ManageZoneAirUpdates( iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-				if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-				SimHVAC();
-
-				if ( AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && ! WarmupFlag ) {
-					RunOptCondEntTemp = true;
-					while ( RunOptCondEntTemp ) {
-						SimHVAC();
-					}
-				}
-
-				ManageWaterInits();
-
-				//Need to set the flag back since we do not need to shift the temps back again in the correct step.
-				ShortenTimeStepSys = false;
-
-				ManageZoneAirUpdates( iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-				if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-
-				ManageZoneAirUpdates( iPushSystemTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-				if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iPushSystemTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-				PreviousTimeStep = TimeStepSys;
-			}
-
+			PriorTimeStep = TimeStepZone;
+			NumOfSysTimeSteps = 1;
 			FracTimeStepZone = TimeStepSys / TimeStepZone;
 
-			for ( ZoneNum = 1; ZoneNum <= NumOfZones; ++ZoneNum ) {
-				ZTAV( ZoneNum ) += ZT( ZoneNum ) * FracTimeStepZone;
-				ZoneAirHumRatAvg( ZoneNum ) += ZoneAirHumRat( ZoneNum ) * FracTimeStepZone;
-				if ( Contaminant.CO2Simulation ) ZoneAirCO2Avg( ZoneNum ) += ZoneAirCO2( ZoneNum ) * FracTimeStepZone;
-				if ( Contaminant.GenericContamSimulation ) ZoneAirGCAvg( ZoneNum ) += ZoneAirGC( ZoneNum ) * FracTimeStepZone;
+			ManageEMS(emsCallFromBeginTimestepBeforePredictor); //calling point
+
+			// SetOutAirNodes();
+
+			//ManageRefrigeratedCaseRacks();
+
+			////ZONE INITIALIZATION  'Get Zone Setpoints'
+			//ManageZoneAirUpdates(iGetZoneSetPoints, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iGetZoneSetPoints, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			//ManageHybridVentilation();
+
+			//CalcAirFlowSimple();
+			//if (SimulateAirflowNetwork > AirflowNetworkControlSimple) {
+			//	RollBackFlag = false;
+			//	ManageAirflowNetworkBalance(false);
+			//}
+
+			//SetHeatToReturnAirFlag();
+
+			//SysDepZoneLoadsLagged = SysDepZoneLoads;
+
+			UpdateInternalGainValues(true, true);
+
+			//ManageZoneAirUpdates(iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			if (firstFlagQSS){
+				GetZoneAirSetPoints();
+				InitZoneAirSetPoints();
+				GetZoneEquipment();
+				firstFlagQSS = false;
 			}
 
-			DetectOscillatingZoneTemp();
-			UpdateZoneListAndGroupLoads(); // Must be called before UpdateDataandReport(HVACTSReporting)
-			UpdateIceFractions(); // Update fraction of ice stored in TES
-			ManageWater();
-			// update electricity data for net, purchased, sold etc.
-			DummyLogical = false;
-			ManageElectricLoadCenters( false, DummyLogical, true );
-			// Update the plant and condenser loop capacitance model temperature history.
-			UpdateNodeThermalHistory();
+			//if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
 
-			ManageEMS( emsCallFromEndSystemTimestepBeforeHVACReporting ); // EMS calling point
+			//SimHVAC();
 
-			// This is where output processor data is updated for System Timestep reporting
-			if ( ! WarmupFlag ) {
-				if ( DoOutputReporting ) {
+			//if (AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && !WarmupFlag) {
+			//	RunOptCondEntTemp = true;
+			//	while (RunOptCondEntTemp) {
+			//		SimHVAC();
+			//	}
+			//}
+
+			//ManageWaterInits();
+
+			//// Only simulate once per zone timestep; must be after SimHVAC
+			//if (FirstTimeStepSysFlag && MetersHaveBeenInitialized) {
+			//	ManageDemand();
+			//}
+
+			BeginTimeStepFlag = false; // At this point, we have been through the first pass through SimHVAC so this needs to be set
+
+			//ManageZoneAirUpdates(iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			//if (ZoneTempChange > MaxZoneTempDiff && !KickOffSimulation) {
+			//	//determine value of adaptive system time step
+			//	// model how many system timesteps we want in zone timestep
+			//	ZTempTrendsNumSysSteps = int(ZoneTempChange / MaxZoneTempDiff + 1.0); // add 1 for truncation
+			//	NumOfSysTimeSteps = min(ZTempTrendsNumSysSteps, LimitNumSysSteps);
+			//	//then determine timestep length for even distribution, protect div by zero
+			//	if (NumOfSysTimeSteps > 0) TimeStepSys = TimeStepZone / NumOfSysTimeSteps;
+			//	TimeStepSys = max(TimeStepSys, MinTimeStepSys);
+			//	UseZoneTimeStepHistory = false;
+			//	ShortenTimeStepSys = true;
+			//}
+			//else {
+			//	NumOfSysTimeSteps = 1;
+			//	UseZoneTimeStepHistory = true;
+			//}
+
+			//if (UseZoneTimeStepHistory) PreviousTimeStep = TimeStepZone;
+			//for (SysTimestepLoop = 1; SysTimestepLoop <= NumOfSysTimeSteps; ++SysTimestepLoop) {
+
+			//	if (TimeStepSys < TimeStepZone) {
+
+			//		ManageHybridVentilation();
+			//		//CalcAirFlowSimple(SysTimestepLoop);
+			//		if (SimulateAirflowNetwork > AirflowNetworkControlSimple) {
+			//			RollBackFlag = false;
+			//			ManageAirflowNetworkBalance(false);
+			//		}
+
+			//		UpdateInternalGainValues(true, true);
+
+			//		ManageZoneAirUpdates(iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			//		if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//		SimHVAC();
+
+			//		if (AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && !WarmupFlag) {
+			//			RunOptCondEntTemp = true;
+			//			while (RunOptCondEntTemp) {
+			//				SimHVAC();
+			//			}
+			//		}
+
+			//		ManageWaterInits();
+
+			//		//Need to set the flag back since we do not need to shift the temps back again in the correct step.
+			//		ShortenTimeStepSys = false;
+
+			//		ManageZoneAirUpdates(iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//		if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			//		ManageZoneAirUpdates(iPushSystemTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//		if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPushSystemTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//		PreviousTimeStep = TimeStepSys;
+			//	}
+
+			//	FracTimeStepZone = TimeStepSys / TimeStepZone;
+
+			//	for (ZoneNum = 1; ZoneNum <= NumOfZones; ++ZoneNum) {
+			//		ZTAV(ZoneNum) += ZT(ZoneNum) * FracTimeStepZone;
+			//		ZoneAirHumRatAvg(ZoneNum) += ZoneAirHumRat(ZoneNum) * FracTimeStepZone;
+			//		if (Contaminant.CO2Simulation) ZoneAirCO2Avg(ZoneNum) += ZoneAirCO2(ZoneNum) * FracTimeStepZone;
+			//		if (Contaminant.GenericContamSimulation) ZoneAirGCAvg(ZoneNum) += ZoneAirGC(ZoneNum) * FracTimeStepZone;
+			//	}
+
+			//	DetectOscillatingZoneTemp();
+			//	UpdateZoneListAndGroupLoads(); // Must be called before UpdateDataandReport(HVACTSReporting)
+			//	UpdateIceFractions(); // Update fraction of ice stored in TES
+			//	ManageWater();
+			//	// update electricity data for net, purchased, sold etc.
+			//	DummyLogical = false;
+			//	ManageElectricLoadCenters(false, DummyLogical, true);
+			//	// Update the plant and condenser loop capacitance model temperature history.
+			//	UpdateNodeThermalHistory();
+
+			//	ManageEMS(emsCallFromEndSystemTimestepBeforeHVACReporting); // EMS calling point
+
+			//	// This is where output processor data is updated for System Timestep reporting
+			//	if (!WarmupFlag) {
+			//		if (DoOutputReporting) {
+			//			CalcMoreNodeInfo();
+			//			CalculatePollution();
+			//			InitEnergyReports();
+			//			ReportSystemEnergyUse();
+			//		}
+			//		if (DoOutputReporting || (ZoneSizingCalc && CompLoadReportIsReq)) {
+			//			ReportAirHeatBalance();
+			//			if (ZoneSizingCalc) GatherComponentLoadsHVAC();
+			//		}
+			//		if (DoOutputReporting) {
+			//			ReportMaxVentilationLoads();
+			//			UpdateDataandReport(HVACTSReporting);
+			//			UpdateTabularReports(HVACTSReporting);
+			//		}
+			//		if (ZoneSizingCalc) {
+			//			UpdateZoneSizing(DuringDay);
+			//		}
+			//	}
+			//	else if (!KickOffSimulation && DoOutputReporting && ReportDuringWarmup) {
+			//		if (BeginDayFlag && !PrintEnvrnStampWarmupPrinted) {
+			//			PrintEnvrnStampWarmup = true;
+			//			PrintEnvrnStampWarmupPrinted = true;
+			//		}
+			//		if (!BeginDayFlag) PrintEnvrnStampWarmupPrinted = false;
+			//		if (PrintEnvrnStampWarmup) {
+			//			if (PrintEndDataDictionary && DoOutputReporting && !PrintedWarmup) {
+			//				gio::write(OutputFileStandard, EndOfHeaderFormat);
+			//				gio::write(OutputFileMeters, EndOfHeaderFormat);
+			//				PrintEndDataDictionary = false;
+			//			}
+			//			if (DoOutputReporting && !PrintedWarmup) {
+			//				gio::write(OutputFileStandard, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+			//				gio::write(OutputFileMeters, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+			//				PrintEnvrnStampWarmup = false;
+			//			}
+			//			PrintedWarmup = true;
+			//		}
+			//		CalcMoreNodeInfo();
+			//		UpdateDataandReport(HVACTSReporting);
+			//	}
+			//	else if (UpdateDataDuringWarmupExternalInterface) { // added for FMI
+			//		if (BeginDayFlag && !PrintEnvrnStampWarmupPrinted) {
+			//			PrintEnvrnStampWarmup = true;
+			//			PrintEnvrnStampWarmupPrinted = true;
+			//		}
+			//		if (!BeginDayFlag) PrintEnvrnStampWarmupPrinted = false;
+			//		if (PrintEnvrnStampWarmup) {
+			//			if (PrintEndDataDictionary && DoOutputReporting && !PrintedWarmup) {
+			//				gio::write(OutputFileStandard, EndOfHeaderFormat);
+			//				gio::write(OutputFileMeters, EndOfHeaderFormat);
+			//				PrintEndDataDictionary = false;
+			//			}
+			//			if (DoOutputReporting && !PrintedWarmup) {
+			//				gio::write(OutputFileStandard, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+			//				gio::write(OutputFileMeters, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+			//				PrintEnvrnStampWarmup = false;
+			//			}
+			//			PrintedWarmup = true;
+			//		}
+			//		UpdateDataandReport(HVACTSReporting);
+			//	}
+			//	ManageEMS(emsCallFromEndSystemTimestepAfterHVACReporting); // EMS calling point
+			//	//UPDATE SYSTEM CLOCKS
+			//	SysTimeElapsed += TimeStepSys;
+
+			//	FirstTimeStepSysFlag = false;
+			//} //system time step  loop (loops once if no downstepping)
+
+			//ManageZoneAirUpdates(iPushZoneTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			//if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPushZoneTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			//NumOfSysTimeStepsLastZoneTimeStep = NumOfSysTimeSteps;
+
+			//UpdateDemandManagers();
+		}
+		else{
+
+			//SYSTEM INITIALIZATION
+			if (TriggerGetAFN) {
+				TriggerGetAFN = false;
+				DisplayString("Initializing HVAC");
+				ManageAirflowNetworkBalance(); // first call only gets input and returns.
+			}
+
+			ZT = MAT;
+			// save for use with thermal comfort control models (Fang, Pierce, and KSU)
+			ZTAVComf = ZTAV;
+			ZoneAirHumRatAvgComf = ZoneAirHumRatAvg;
+			ZTAV = 0.0;
+			ZoneAirHumRatAvg = 0.0;
+			PrintedWarmup = false;
+			if (Contaminant.CO2Simulation) {
+				OutdoorCO2 = GetCurrentScheduleValue(Contaminant.CO2OutdoorSchedPtr);
+				ZoneAirCO2Avg = 0.0;
+			}
+			if (Contaminant.GenericContamSimulation) {
+				OutdoorGC = GetCurrentScheduleValue(Contaminant.GenericContamOutdoorSchedPtr);
+				if (allocated(ZoneAirGCAvg)) ZoneAirGCAvg = 0.0;
+			}
+
+			if (BeginEnvrnFlag && MyEnvrnFlag) {
+				ResetNodeData();
+				AirLoopsSimOnce = false;
+				MyEnvrnFlag = false;
+				InitVentReportFlag = true;
+				NumOfSysTimeStepsLastZoneTimeStep = 1;
+				PreviousTimeStep = TimeStepZone;
+			}
+			if (!BeginEnvrnFlag) {
+				MyEnvrnFlag = true;
+			}
+
+			SysTimeElapsed = 0.0;
+			TimeStepSys = TimeStepZone;
+			FirstTimeStepSysFlag = true;
+			ShortenTimeStepSys = false;
+			UseZoneTimeStepHistory = true;
+			PriorTimeStep = TimeStepZone;
+			NumOfSysTimeSteps = 1;
+			FracTimeStepZone = TimeStepSys / TimeStepZone;
+
+			ManageEMS(emsCallFromBeginTimestepBeforePredictor); //calling point
+
+			SetOutAirNodes();
+
+			ManageRefrigeratedCaseRacks();
+
+			//ZONE INITIALIZATION  'Get Zone Setpoints'
+			ManageZoneAirUpdates(iGetZoneSetPoints, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iGetZoneSetPoints, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			ManageHybridVentilation();
+
+			CalcAirFlowSimple();
+			if (SimulateAirflowNetwork > AirflowNetworkControlSimple) {
+				RollBackFlag = false;
+				ManageAirflowNetworkBalance(false);
+			}
+
+			SetHeatToReturnAirFlag();
+
+			SysDepZoneLoadsLagged = SysDepZoneLoads;
+
+			UpdateInternalGainValues(true, true);
+
+			ManageZoneAirUpdates(iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			SimHVAC();
+
+			if (AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && !WarmupFlag) {
+				RunOptCondEntTemp = true;
+				while (RunOptCondEntTemp) {
+					SimHVAC();
+				}
+			}
+
+			ManageWaterInits();
+
+			// Only simulate once per zone timestep; must be after SimHVAC
+			if (FirstTimeStepSysFlag && MetersHaveBeenInitialized) {
+				ManageDemand();
+			}
+
+			BeginTimeStepFlag = false; // At this point, we have been through the first pass through SimHVAC so this needs to be set
+
+			ManageZoneAirUpdates(iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+			if (ZoneTempChange > MaxZoneTempDiff && !KickOffSimulation) {
+				//determine value of adaptive system time step
+				// model how many system timesteps we want in zone timestep
+				ZTempTrendsNumSysSteps = int(ZoneTempChange / MaxZoneTempDiff + 1.0); // add 1 for truncation
+				NumOfSysTimeSteps = min(ZTempTrendsNumSysSteps, LimitNumSysSteps);
+				//then determine timestep length for even distribution, protect div by zero
+				if (NumOfSysTimeSteps > 0) TimeStepSys = TimeStepZone / NumOfSysTimeSteps;
+				TimeStepSys = max(TimeStepSys, MinTimeStepSys);
+				UseZoneTimeStepHistory = false;
+				ShortenTimeStepSys = true;
+			}
+			else {
+				NumOfSysTimeSteps = 1;
+				UseZoneTimeStepHistory = true;
+			}
+
+			if (UseZoneTimeStepHistory) PreviousTimeStep = TimeStepZone;
+			for (SysTimestepLoop = 1; SysTimestepLoop <= NumOfSysTimeSteps; ++SysTimestepLoop) {
+
+				if (TimeStepSys < TimeStepZone) {
+
+					ManageHybridVentilation();
+					CalcAirFlowSimple(SysTimestepLoop);
+					if (SimulateAirflowNetwork > AirflowNetworkControlSimple) {
+						RollBackFlag = false;
+						ManageAirflowNetworkBalance(false);
+					}
+
+					UpdateInternalGainValues(true, true);
+
+					ManageZoneAirUpdates(iPredictStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+					if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPredictStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+					SimHVAC();
+
+					if (AnyIdealCondEntSetPointInModel && MetersHaveBeenInitialized && !WarmupFlag) {
+						RunOptCondEntTemp = true;
+						while (RunOptCondEntTemp) {
+							SimHVAC();
+						}
+					}
+
+					ManageWaterInits();
+
+					//Need to set the flag back since we do not need to shift the temps back again in the correct step.
+					ShortenTimeStepSys = false;
+
+					ManageZoneAirUpdates(iCorrectStep, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+					if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iCorrectStep, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+
+					ManageZoneAirUpdates(iPushSystemTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+					if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPushSystemTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+					PreviousTimeStep = TimeStepSys;
+				}
+
+				FracTimeStepZone = TimeStepSys / TimeStepZone;
+
+				for (ZoneNum = 1; ZoneNum <= NumOfZones; ++ZoneNum) {
+					ZTAV(ZoneNum) += ZT(ZoneNum) * FracTimeStepZone;
+					ZoneAirHumRatAvg(ZoneNum) += ZoneAirHumRat(ZoneNum) * FracTimeStepZone;
+					if (Contaminant.CO2Simulation) ZoneAirCO2Avg(ZoneNum) += ZoneAirCO2(ZoneNum) * FracTimeStepZone;
+					if (Contaminant.GenericContamSimulation) ZoneAirGCAvg(ZoneNum) += ZoneAirGC(ZoneNum) * FracTimeStepZone;
+				}
+
+				DetectOscillatingZoneTemp();
+				UpdateZoneListAndGroupLoads(); // Must be called before UpdateDataandReport(HVACTSReporting)
+				UpdateIceFractions(); // Update fraction of ice stored in TES
+				ManageWater();
+				// update electricity data for net, purchased, sold etc.
+				DummyLogical = false;
+				ManageElectricLoadCenters(false, DummyLogical, true);
+				// Update the plant and condenser loop capacitance model temperature history.
+				UpdateNodeThermalHistory();
+
+				ManageEMS(emsCallFromEndSystemTimestepBeforeHVACReporting); // EMS calling point
+
+				// This is where output processor data is updated for System Timestep reporting
+				if (!WarmupFlag) {
+					if (DoOutputReporting) {
+						CalcMoreNodeInfo();
+						CalculatePollution();
+						InitEnergyReports();
+						ReportSystemEnergyUse();
+					}
+					if (DoOutputReporting || (ZoneSizingCalc && CompLoadReportIsReq)) {
+						ReportAirHeatBalance();
+						if (ZoneSizingCalc) GatherComponentLoadsHVAC();
+					}
+					if (DoOutputReporting) {
+						ReportMaxVentilationLoads();
+						UpdateDataandReport(HVACTSReporting);
+						UpdateTabularReports(HVACTSReporting);
+					}
+					if (ZoneSizingCalc) {
+						UpdateZoneSizing(DuringDay);
+					}
+				}
+				else if (!KickOffSimulation && DoOutputReporting && ReportDuringWarmup) {
+					if (BeginDayFlag && !PrintEnvrnStampWarmupPrinted) {
+						PrintEnvrnStampWarmup = true;
+						PrintEnvrnStampWarmupPrinted = true;
+					}
+					if (!BeginDayFlag) PrintEnvrnStampWarmupPrinted = false;
+					if (PrintEnvrnStampWarmup) {
+						if (PrintEndDataDictionary && DoOutputReporting && !PrintedWarmup) {
+							gio::write(OutputFileStandard, EndOfHeaderFormat);
+							gio::write(OutputFileMeters, EndOfHeaderFormat);
+							PrintEndDataDictionary = false;
+						}
+						if (DoOutputReporting && !PrintedWarmup) {
+							gio::write(OutputFileStandard, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+							gio::write(OutputFileMeters, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+							PrintEnvrnStampWarmup = false;
+						}
+						PrintedWarmup = true;
+					}
 					CalcMoreNodeInfo();
-					CalculatePollution();
-					InitEnergyReports();
-					ReportSystemEnergyUse();
+					UpdateDataandReport(HVACTSReporting);
 				}
-				if ( DoOutputReporting || ( ZoneSizingCalc && CompLoadReportIsReq ) ) {
-					ReportAirHeatBalance();
-					if ( ZoneSizingCalc ) GatherComponentLoadsHVAC();
-				}
-				if ( DoOutputReporting ) {
-					ReportMaxVentilationLoads();
-					UpdateDataandReport( HVACTSReporting );
-					UpdateTabularReports( HVACTSReporting );
-				}
-				if ( ZoneSizingCalc ) {
-					UpdateZoneSizing( DuringDay );
-				}
-			} else if ( ! KickOffSimulation && DoOutputReporting && ReportDuringWarmup ) {
-				if ( BeginDayFlag && ! PrintEnvrnStampWarmupPrinted ) {
-					PrintEnvrnStampWarmup = true;
-					PrintEnvrnStampWarmupPrinted = true;
-				}
-				if ( ! BeginDayFlag ) PrintEnvrnStampWarmupPrinted = false;
-				if ( PrintEnvrnStampWarmup ) {
-					if ( PrintEndDataDictionary && DoOutputReporting && ! PrintedWarmup ) {
-						gio::write( OutputFileStandard, EndOfHeaderFormat );
-						gio::write( OutputFileMeters, EndOfHeaderFormat );
-						PrintEndDataDictionary = false;
+				else if (UpdateDataDuringWarmupExternalInterface) { // added for FMI
+					if (BeginDayFlag && !PrintEnvrnStampWarmupPrinted) {
+						PrintEnvrnStampWarmup = true;
+						PrintEnvrnStampWarmupPrinted = true;
 					}
-					if ( DoOutputReporting && ! PrintedWarmup ) {
-						gio::write( OutputFileStandard, EnvironmentStampFormat ) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
-						gio::write( OutputFileMeters, EnvironmentStampFormat ) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
-						PrintEnvrnStampWarmup = false;
+					if (!BeginDayFlag) PrintEnvrnStampWarmupPrinted = false;
+					if (PrintEnvrnStampWarmup) {
+						if (PrintEndDataDictionary && DoOutputReporting && !PrintedWarmup) {
+							gio::write(OutputFileStandard, EndOfHeaderFormat);
+							gio::write(OutputFileMeters, EndOfHeaderFormat);
+							PrintEndDataDictionary = false;
+						}
+						if (DoOutputReporting && !PrintedWarmup) {
+							gio::write(OutputFileStandard, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+							gio::write(OutputFileMeters, EnvironmentStampFormat) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
+							PrintEnvrnStampWarmup = false;
+						}
+						PrintedWarmup = true;
 					}
-					PrintedWarmup = true;
+					UpdateDataandReport(HVACTSReporting);
 				}
-				CalcMoreNodeInfo();
-				UpdateDataandReport( HVACTSReporting );
-			} else if ( UpdateDataDuringWarmupExternalInterface ) { // added for FMI
-				if ( BeginDayFlag && ! PrintEnvrnStampWarmupPrinted ) {
-					PrintEnvrnStampWarmup = true;
-					PrintEnvrnStampWarmupPrinted = true;
-				}
-				if ( ! BeginDayFlag ) PrintEnvrnStampWarmupPrinted = false;
-				if ( PrintEnvrnStampWarmup ) {
-					if ( PrintEndDataDictionary && DoOutputReporting && ! PrintedWarmup ) {
-						gio::write( OutputFileStandard, EndOfHeaderFormat );
-						gio::write( OutputFileMeters, EndOfHeaderFormat );
-						PrintEndDataDictionary = false;
-					}
-					if ( DoOutputReporting && ! PrintedWarmup ) {
-						gio::write( OutputFileStandard, EnvironmentStampFormat ) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
-						gio::write( OutputFileMeters, EnvironmentStampFormat ) << "1" << "Warmup {" + cWarmupDay + "} " + EnvironmentName << Latitude << Longitude << TimeZoneNumber << Elevation;
-						PrintEnvrnStampWarmup = false;
-					}
-					PrintedWarmup = true;
-				}
-				UpdateDataandReport( HVACTSReporting );
-			}
-			ManageEMS( emsCallFromEndSystemTimestepAfterHVACReporting ); // EMS calling point
-			//UPDATE SYSTEM CLOCKS
-			SysTimeElapsed += TimeStepSys;
+				ManageEMS(emsCallFromEndSystemTimestepAfterHVACReporting); // EMS calling point
+				//UPDATE SYSTEM CLOCKS
+				SysTimeElapsed += TimeStepSys;
 
-			FirstTimeStepSysFlag = false;
-		} //system time step  loop (loops once if no downstepping)
+				FirstTimeStepSysFlag = false;
+			} //system time step  loop (loops once if no downstepping)
 
-		ManageZoneAirUpdates( iPushZoneTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
-		if ( Contaminant.SimulateContaminants ) ManageZoneContaminanUpdates( iPushZoneTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep );
+			ManageZoneAirUpdates(iPushZoneTimestepHistories, ZoneTempChange, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
+			if (Contaminant.SimulateContaminants) ManageZoneContaminanUpdates(iPushZoneTimestepHistories, ShortenTimeStepSys, UseZoneTimeStepHistory, PriorTimeStep);
 
-		NumOfSysTimeStepsLastZoneTimeStep = NumOfSysTimeSteps;
+			NumOfSysTimeStepsLastZoneTimeStep = NumOfSysTimeSteps;
 
-		UpdateDemandManagers();
+			UpdateDemandManagers();
+		}
 
 		// DO FINAL UPDATE OF RECORD KEEPING VARIABLES
 		// Report the Node Data to Aid in Debugging
-		if ( DebugOutput ) {
-			if ( EvenDuringWarmup ) {
+		if (DebugOutput) {
+			if (EvenDuringWarmup) {
 				ReportDebug = true;
-			} else {
-				ReportDebug = ! WarmupFlag;
 			}
-			if ( ( ReportDebug ) && ( DayOfSim > 0 ) ) { // Report the node data
-				if ( size( Node ) > 0 && ! DebugNamesReported ) {
-					gio::write( OutputFileDebug, Format_11 );
-					for ( NodeNum = 1; NodeNum <= isize( Node ); ++NodeNum ) {
-						gio::write( OutputFileDebug, Format_30 ) << NodeNum << NodeID( NodeNum );
+			else {
+				ReportDebug = !WarmupFlag;
+			}
+			if ((ReportDebug) && (DayOfSim > 0)) { // Report the node data
+				if (size(Node) > 0 && !DebugNamesReported) {
+					gio::write(OutputFileDebug, Format_11);
+					for (NodeNum = 1; NodeNum <= isize(Node); ++NodeNum) {
+						gio::write(OutputFileDebug, Format_30) << NodeNum << NodeID(NodeNum);
 					}
 					DebugNamesReported = true;
 				}
-				if ( size( Node ) > 0 ) {
-					gio::write( OutputFileDebug, fmtLD );
-					gio::write( OutputFileDebug, fmtLD );
-					gio::write( OutputFileDebug, fmtLD ) << "Day of Sim     Hour of Day    Time";
-					gio::write( OutputFileDebug, fmtLD ) << DayOfSim << HourOfDay << TimeStep * TimeStepZone;
-					gio::write( OutputFileDebug, Format_10 );
+				if (size(Node) > 0) {
+					gio::write(OutputFileDebug, fmtLD);
+					gio::write(OutputFileDebug, fmtLD);
+					gio::write(OutputFileDebug, fmtLD) << "Day of Sim     Hour of Day    Time";
+					gio::write(OutputFileDebug, fmtLD) << DayOfSim << HourOfDay << TimeStep * TimeStepZone;
+					gio::write(OutputFileDebug, Format_10);
 				}
-				for ( NodeNum = 1; NodeNum <= isize( Node ); ++NodeNum ) {
-					gio::write( OutputFileDebug, Format_20 ) << NodeNum << Node( NodeNum ).Temp << Node( NodeNum ).MassFlowRateMinAvail << Node( NodeNum ).MassFlowRateMaxAvail << Node( NodeNum ).TempSetPoint << Node( NodeNum ).MassFlowRate << Node( NodeNum ).MassFlowRateMin << Node( NodeNum ).MassFlowRateMax << Node( NodeNum ).MassFlowRateSetPoint << Node( NodeNum ).Press << Node( NodeNum ).Enthalpy << Node( NodeNum ).HumRat << ValidNodeFluidTypes( Node( NodeNum ).FluidType );
+				for (NodeNum = 1; NodeNum <= isize(Node); ++NodeNum) {
+					gio::write(OutputFileDebug, Format_20) << NodeNum << Node(NodeNum).Temp << Node(NodeNum).MassFlowRateMinAvail << Node(NodeNum).MassFlowRateMaxAvail << Node(NodeNum).TempSetPoint << Node(NodeNum).MassFlowRate << Node(NodeNum).MassFlowRateMin << Node(NodeNum).MassFlowRateMax << Node(NodeNum).MassFlowRateSetPoint << Node(NodeNum).Press << Node(NodeNum).Enthalpy << Node(NodeNum).HumRat << ValidNodeFluidTypes(Node(NodeNum).FluidType);
 				}
 			}
 		}
@@ -836,7 +1104,7 @@ namespace HVACManager {
 					ShowContinueError( "The solution for on-site electric generators did not appear to converge" );
 				}
 				if ( ErrCount == 1 && ! DisplayExtraWarnings ) {
-					ShowContinueError( "...use Output:Diagnostics,DisplayExtraWarnings; to show more details on each max iteration exceeded." );
+					ShowContinueError( "...use Output:Diagnostics,DisplayExtraWarnings; " "  to show more details on each max iteration exceeded." );
 				}
 				if ( DisplayExtraWarnings ) {
 
@@ -2521,13 +2789,13 @@ namespace HVACManager {
 				}
 				if ( ZoneEquipConfig( ControlledZoneNum ).ZonalSystemOnly || CyclingFan ) {
 					if ( Zone( ZoneNum ).RefrigCaseRA ) {
-						ShowWarningError( "For zone=" + Zone( ZoneNum ).Name + " return air cooling by refrigerated cases will be applied to the zone air." );
+						ShowWarningError( "For zone=" + Zone( ZoneNum ).Name + " return air cooling by refrigerated cases will be" " applied to the zone air." );
 						ShowContinueError( "  This zone has no return air or is served by an on/off HVAC system." );
 					}
 					for ( LightNum = 1; LightNum <= TotLights; ++LightNum ) {
 						if ( Lights( LightNum ).ZonePtr != ZoneNum ) continue;
 						if ( Lights( LightNum ).FractionReturnAir > 0.0 ) {
-							ShowWarningError( "For zone=" + Zone( ZoneNum ).Name + " return air heat gain from lights will be applied to the zone air." );
+							ShowWarningError( "For zone=" + Zone( ZoneNum ).Name + " return air heat gain from lights will be" " applied to the zone air." );
 							ShowContinueError( "  This zone has no return air or is served by an on/off HVAC system." );
 							break;
 						}

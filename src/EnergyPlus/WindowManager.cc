@@ -26,6 +26,7 @@
 #include <Psychrometrics.hh>
 #include <ScheduleManager.hh>
 #include <UtilityRoutines.hh>
+#include <SolarShading.hh> // added by TSN for QSS
 #include <Vectors.hh>
 #include <WindowComplexManager.hh>
 #include <WindowEquivalentLayer.hh>
@@ -2770,6 +2771,8 @@ namespace WindowManager {
 		using Psychrometrics::PsyTdbFnHW;
 		using InputProcessor::SameString;
 		using ConvectionCoefficients::CalcISO15099WindowIntConvCoeff;
+		using SolarShading::SurfaceScheduledConvectiveHeatGain; // added by TSN for QSS
+		using ScheduleManager::GetCurrentScheduleValue; // added by TSN for QSS
 
 		// Locals
 		// SUBROUTINE ARGUMENT DEFINITIONS:
@@ -2918,14 +2921,17 @@ namespace WindowManager {
 		// Calculate radiative conductances
 
 		errtemp = errtemptol * 2.0;
-
+		// Added by TSN for QSS
+		ConstrNum = Surface(SurfNum).Construction;
+		int SurfSchIdx = SurfaceScheduledConvectiveHeatGain(SurfNum, ConstrNum);
+		
 		while ( iter < MaxIterations && errtemp > errtemptol ) {
 
 			for ( i = 1; i <= nglfacep; ++i ) {
 				hr( i ) = emis( i ) * sigma * pow_3( thetas( i ) );
 				// Following line is redundant since thetas is being relaxed;
 				// removed by FCW, 3/4/03
-				//!fw if ( iter >= 1 ) hr(i) = 0.5*(hrprev(i)+hr(i))
+				//!fw if(iter >= 1) hr(i) = 0.5*(hrprev(i)+hr(i))
 				hrprev( i ) = hr( i );
 			}
 
@@ -2990,12 +2996,28 @@ namespace WindowManager {
 
 			if ( SELECT_CASE_var == 1 ) {
 				Bface( 1 ) = Outir * emis( 1 ) + hcout * tout + AbsRadGlassFace( 1 );
-				Bface( 2 ) = Rmir * emis( 2 ) + hcin * tin + AbsRadGlassFace( 2 );
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = hcin * (tin - thetas(2 * ngllayer)).
+					Bface(2) = Rmir * emis(2) + GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) + AbsRadGlassFace(2);
+				}
+				else{
+					Bface(2) = Rmir * emis(2) + hcin * tin + AbsRadGlassFace(2);
+				}
 
 				Aface( 1, 1 ) = hr( 1 ) + scon( 1 ) + hcout;
 				Aface( 1, 2 ) = -scon( 1 );
 				Aface( 2, 1 ) = -scon( 1 );
-				Aface( 2, 2 ) = hr( 2 ) + scon( 1 ) + hcin;
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// Remove the convective coefficient which is in Bface(2)
+					Aface(2, 2) = hr(2) + scon(1);
+				}
+				else{
+					Aface(2, 2) = hr(2) + scon(1) + hcin;
+				}
 
 				if ( ShadeFlag == IntShadeOn || ShadeFlag == IntBlindOn ) {
 					Bface( 2 ) = Rmir * emis( 2 ) * TauShIR / ShGlReflFacIR + hcv * TGapNew + AbsRadGlassFace( 2 );
@@ -3037,7 +3059,15 @@ namespace WindowManager {
 				Bface( 1 ) = Outir * emis( 1 ) + hcout * tout + AbsRadGlassFace( 1 );
 				Bface( 2 ) = AbsRadGlassFace( 2 );
 				Bface( 3 ) = AbsRadGlassFace( 3 );
-				Bface( 4 ) = Rmir * emis( 4 ) + hcin * tin + AbsRadGlassFace( 4 );
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = hcin * (tin - thetas(2 * ngllayer)).
+					Bface(4) = Rmir * emis(4) + GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) + AbsRadGlassFace(4);
+				}
+				else{
+					Bface(4) = Rmir * emis(4) + hcin * tin + AbsRadGlassFace(4);
+				}
 
 				Aface( 1, 1 ) = hr( 1 ) + scon( 1 ) + hcout;
 				Aface( 1, 2 ) = -scon( 1 );
@@ -3051,7 +3081,15 @@ namespace WindowManager {
 				Aface( 3, 4 ) = -scon( 2 );
 
 				Aface( 4, 3 ) = -scon( 2 );
-				Aface( 4, 4 ) = hr( 4 ) + scon( 2 ) + hcin;
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// Remove the convective coefficient which is in Bface(2)
+					Aface(4, 4) = hr(4) + scon(2);
+				}
+				else{
+					Aface(4, 4) = hr(4) + scon(2) + hcin;
+				}
 
 				if ( ShadeFlag != BGShadeOn && ShadeFlag != BGBlindOn && SurfaceWindow( SurfNum ).AirflowThisTS > 0.0 ) {
 					Bface( 2 ) = AbsRadGlassFace( 2 ) + hcvAirflowGap * TAirflowGapNew;
@@ -3147,7 +3185,15 @@ namespace WindowManager {
 				Bface( 3 ) = AbsRadGlassFace( 3 );
 				Bface( 4 ) = AbsRadGlassFace( 4 );
 				Bface( 5 ) = AbsRadGlassFace( 5 );
-				Bface( 6 ) = Rmir * emis( 6 ) + hcin * tin + AbsRadGlassFace( 6 );
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = hcin * (tin - thetas(2 * ngllayer)).
+					Bface(6) = Rmir * emis(6) + GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) + AbsRadGlassFace(6);
+				}
+				else{
+					Bface(6) = Rmir * emis(6) + hcin * tin + AbsRadGlassFace(6);
+				}
 
 				Aface( 1, 1 ) = hr( 1 ) + scon( 1 ) + hcout;
 				Aface( 1, 2 ) = -scon( 1 );
@@ -3169,7 +3215,15 @@ namespace WindowManager {
 				Aface( 5, 6 ) = -scon( 3 );
 
 				Aface( 6, 5 ) = -scon( 3 );
-				Aface( 6, 6 ) = hr( 6 ) + scon( 3 ) + hcin;
+				
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// Remove the convective coefficient which is in Bface(2)
+					Aface(6, 6) = hr(6) + scon(3);
+				}
+				else{
+					Aface(6, 6) = hr(6) + scon(3) + hcin;
+				}
 
 				if ( ShadeFlag != BGShadeOn && ShadeFlag != BGBlindOn && SurfaceWindow( SurfNum ).AirflowThisTS > 0.0 ) {
 					Bface( 4 ) = AbsRadGlassFace( 4 ) + hcvAirflowGap * TAirflowGapNew;
@@ -3274,7 +3328,15 @@ namespace WindowManager {
 				Bface( 5 ) = AbsRadGlassFace( 5 );
 				Bface( 6 ) = AbsRadGlassFace( 6 );
 				Bface( 7 ) = AbsRadGlassFace( 7 );
-				Bface( 8 ) = Rmir * emis( 8 ) + hcin * tin + AbsRadGlassFace( 8 );
+
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = hcin * (tin - thetas(2 * ngllayer)).
+					Bface(8) = Rmir * emis(8) + GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) + AbsRadGlassFace(8);
+				}
+				else{
+					Bface(8) = Rmir * emis(8) + hcin * tin + AbsRadGlassFace(8);
+				}
 
 				Aface( 1, 1 ) = hr( 1 ) + scon( 1 ) + hcout;
 				Aface( 1, 2 ) = -scon( 1 );
@@ -3304,7 +3366,15 @@ namespace WindowManager {
 				Aface( 7, 8 ) = -scon( 4 );
 
 				Aface( 8, 7 ) = -scon( 4 );
-				Aface( 8, 8 ) = hr( 8 ) + scon( 4 ) + hcin;
+				
+				// Added by TSN for QSS
+				if (SurfSchIdx != 0){
+					// Remove the convective coefficient which is in Bface(2)
+					Aface(8, 8) = hr(8) + scon(4);
+				}
+				else{
+					Aface(8, 8) = hr(8) + scon(4) + hcin;
+				}
 
 				if ( ShadeFlag == IntShadeOn || ShadeFlag == IntBlindOn ) {
 					Bface( 8 ) = Rmir * emis( 8 ) * TauShIR / ShGlReflFacIR + hcv * TGapNew + AbsRadGlassFace( 8 );
@@ -3393,7 +3463,18 @@ namespace WindowManager {
 				// Interior shade or blind not present; innermost layer is glass
 				CondHeatGainGlass = Surface( SurfNum ).Area * scon( ngllayer ) * ( thetas( 2 * ngllayer - 1 ) - thetas( 2 * ngllayer ) );
 				NetIRHeatGainGlass = Surface( SurfNum ).Area * emis( 2 * ngllayer ) * ( sigma * pow_4( thetas( 2 * ngllayer ) ) - Rmir );
-				ConvHeatGainFrZoneSideOfGlass = Surface( SurfNum ).Area * hcin * ( thetas( 2 * ngllayer ) - tin );
+				// Added by TSN for QSS
+				// Use conventional calculation if convective heat gain is not scheduled.
+				// We do not handle the frame as well as any case where we have blinds or shades.
+				if (SurfSchIdx != 0){
+					// GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr) = hcin * (tin - thetas(2 * ngllayer)) thus the minus.
+					ConvHeatGainFrZoneSideOfGlass = - Surface(SurfNum).Area * GetCurrentScheduleValue(SurfConHeaSSG(SurfSchIdx).SchedPtr);
+				}
+				else{
+					ConvHeatGainFrZoneSideOfGlass = Surface(SurfNum).Area * hcin * (thetas(2 * ngllayer) - tin);
+				}
+				// Commented by TSN for QSS.
+				// ConvHeatGainFrZoneSideOfGlass = Surface( SurfNum ).Area * hcin * ( thetas( 2 * ngllayer ) - tin );
 				WinHeatGain( SurfNum ) = WinTransSolar( SurfNum ) + ConvHeatGainFrZoneSideOfGlass + NetIRHeatGainGlass;
 				// store components for reporting
 				WinGainConvGlazToZoneRep( SurfNum ) = ConvHeatGainFrZoneSideOfGlass;
@@ -6791,7 +6872,7 @@ namespace WindowManager {
 		while ( iter < MaxIterations && errtemp > errtemptol ) {
 			for ( i = 1; i <= nglface; ++i ) {
 				hr( i ) = emis( i ) * sigma * pow_3( thetas( i ) );
-				//!fw 3/4/03 if ( iter >= 1 ) hr(i) = 0.5*(hrprev(i)+hr(i))
+				//!fw 3/4/03 if(iter >= 1) hr(i) = 0.5*(hrprev(i)+hr(i))
 				hrprev( i ) = hr( i );
 			}
 

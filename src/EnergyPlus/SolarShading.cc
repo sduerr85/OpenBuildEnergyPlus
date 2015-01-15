@@ -559,14 +559,14 @@ namespace SolarShading {
 			}
 		} else if ( DetailedSkyDiffuseAlgorithm ) {
 			if ( ! ShadingTransmittanceVaries || SolarDistribution == MinimalShadowing ) {
-				ShowWarningError( "GetShadowingInput: DetailedSkyDiffuseModeling is chosen but not needed as either the shading transmittance for shading devices does not change throughout the year" );
+				ShowWarningError( "GetShadowingInput: DetailedSkyDiffuseModeling is chosen but not needed as" " either the shading transmittance for shading devices does not change throughout the year" );
 				ShowContinueError( " or MinimalShadowing has been chosen." );
 				ShowContinueError( "Simulation should be set to use SimpleSkyDiffuseModeling, but is left at Detailed for simulation." );
 				ShowContinueError( "Choose SimpleSkyDiffuseModeling in the " + cCurrentModuleObject + " object to reduce computation time." );
 			}
 		}
 
-		gio::write( OutputFileInits, fmtA ) << "! <Shadowing/Sun Position Calculations> [Annual Simulations], Calculation Method, Value {days}, Allowable Number Figures in Shadow Overlap {}, Polygon Clipping Algorithm, Sky Diffuse Modeling Algorithm";
+		gio::write( OutputFileInits, fmtA ) << "! <Shadowing/Sun Position Calculations> [Annual Simulations], Calculation Method," "Value {days}, Allowable Number Figures in Shadow Overlap {}, Polygon Clipping Algorithm, " "Sky Diffuse Modeling Algorithm";
 		gio::write( OutputFileInits, fmtA ) << "Shadowing/Sun Position Calculations," + cAlphaArgs( 1 ) + ',' + RoundSigDigits( ShadowingCalcFrequency ) + ',' + RoundSigDigits( MaxHCS ) + ',' + cAlphaArgs( 2 ) + ',' + cAlphaArgs( 3 );
 
 	}
@@ -1929,7 +1929,7 @@ namespace SolarShading {
 			if ( ( ! Zone( ZoneNum ).HasFloor ) && ( HorizAreaSum > 0.0 ) ) {
 				//fill floor area even though surfs not called "Floor", they are roughly horizontal and face upwards.
 				Zone( ZoneNum ).FloorArea = HorizAreaSum;
-				ShowWarningError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains on the zone floor," );
+				ShowWarningError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains " "on the zone floor," );
 				ShowContinueError( "...Zone=\"" + Zone( ZoneNum ).Name + "\" has no floor, but has approximate horizontal surfaces." );
 				ShowContinueError( "...these Tilt > 120°, (area=[" + RoundSigDigits( HorizAreaSum, 2 ) + "] m2) will be used." );
 			}
@@ -1974,11 +1974,11 @@ namespace SolarShading {
 			if ( TestFractSum <= 0.0 ) {
 				if ( Zone( ZoneNum ).ExtWindowArea > 0.0 ) { // we have a problem, the sun has no floor to go to
 					if ( Zone( ZoneNum ).FloorArea <= 0.0 ) {
-						ShowSevereError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains on the zone floor," );
+						ShowSevereError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains " "on the zone floor," );
 						ShowContinueError( "but Zone =\"" + Zone( ZoneNum ).Name + "\" does not appear to have any floor surfaces." );
 						ShowContinueError( "Solar gains will be spread evenly on all surfaces in the zone, and the simulation continues..." );
 					} else { // Floor Area > 0 but still can't absorb
-						ShowSevereError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains on the zone floor," );
+						ShowSevereError( "ComputeIntSolarAbsorpFactors: Solar distribution model is set to place solar gains " "on the zone floor," );
 						ShowContinueError( "but Zone =\"" + Zone( ZoneNum ).Name + "\" floor cannot absorb any solar gains. " );
 						ShowContinueError( "Check the solar absorptance of the inside layer of the floor surface construction/material." );
 						ShowContinueError( "Solar gains will be spread evenly on all surfaces in the zone, and the simulation continues..." );
@@ -6926,11 +6926,65 @@ namespace SolarShading {
 		return WindowScheduledSolarAbs;
 	}
 
+	// Added methods below by TSN for QSS
 	int
-	SurfaceScheduledSolarInc(
+		SurfaceScheduledConvectiveHeatGain(
 		int const SurfNum, // Surface number
 		int const ConstNum // Construction number
 	)
+	{
+		// SUBROUTINE INFORMATION:
+		//       AUTHOR         Thierry S. Nouidui
+		//       DATE WRITTEN   January 2015
+		//       MODIFIED       na
+		//       RE-ENGINEERED  na
+
+		// PURPOSE OF THIS SUBROUTINE:
+		// Returns scheduled surface gain pointer for given surface-construction combination
+
+		// METHODOLOGY EMPLOYED:
+		// na
+
+		// REFERENCES:
+		// na
+
+		// USE STATEMENTS:
+
+		// Return value
+		int SurfaceScheduledConvectiveHeatGain;
+
+		// Locals
+		// SUBROUTINE ARGUMENT DEFINITIONS:
+
+		// SUBROUTINE PARAMETER DEFINITIONS:
+		// na
+
+		// INTERFACE BLOCK SPECIFICATIONS
+		// na
+
+		// DERIVED TYPE DEFINITIONS
+		// na
+
+		// SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+		int i;
+
+		SurfaceScheduledConvectiveHeatGain = 0;
+
+		for ( i = 1; i <= TotSurfConHeaSSG; ++i ) {
+			if ( ( SurfConHeaSSG( i ).SurfPtr == SurfNum ) && ( SurfConHeaSSG( i ).ConstrPtr == ConstNum ) ) {
+				SurfaceScheduledConvectiveHeatGain = i;
+				return SurfaceScheduledConvectiveHeatGain;
+			}
+		}
+
+		return SurfaceScheduledConvectiveHeatGain;
+	}
+
+	int
+		SurfaceScheduledSolarInc(
+		int const SurfNum, // Surface number
+		int const ConstNum // Construction number
+		)
 	{
 		// SUBROUTINE INFORMATION:
 		//       AUTHOR         Simon Vidanovic
@@ -6969,8 +7023,8 @@ namespace SolarShading {
 
 		SurfaceScheduledSolarInc = 0;
 
-		for ( i = 1; i <= TotSurfIncSolSSG; ++i ) {
-			if ( ( SurfIncSolSSG( i ).SurfPtr == SurfNum ) && ( SurfIncSolSSG( i ).ConstrPtr == ConstNum ) ) {
+		for (i = 1; i <= TotSurfIncSolSSG; ++i) {
+			if ((SurfIncSolSSG(i).SurfPtr == SurfNum) && (SurfIncSolSSG(i).ConstrPtr == ConstNum)) {
 				SurfaceScheduledSolarInc = i;
 				return SurfaceScheduledSolarInc;
 			}
@@ -9313,7 +9367,7 @@ namespace SolarShading {
 
 			if ( NumBaseSubSurround > 0 ) {
 				ShowMessage( "Base Surface does not surround subsurface errors occuring..." );
-				ShowMessage( "Check that the GlobalGeometryRules object is expressing the proper starting corner and direction [CounterClockwise/Clockwise]" );
+				ShowMessage( "Check that the GlobalGeometryRules object is expressing the proper starting corner and " "direction [CounterClockwise/Clockwise]" );
 				ShowMessage( "" );
 			}
 
@@ -9351,7 +9405,7 @@ namespace SolarShading {
 			TotCount = 0;
 			if ( NumTooManyVertices > 0 ) {
 				ShowMessage( "Too many vertices [>=" + RoundSigDigits( MaxHCV ) + "] in shadow overlap errors occurring..." );
-				ShowMessage( "These occur throughout the year and may occur several times for the same surfaces. You may be able to reduce them by adding Output:Diagnostics,DoNotMirrorDetachedShading;" );
+				ShowMessage( "These occur throughout the year and may occur several times for the same surfaces. " "You may be able to reduce them by adding Output:Diagnostics,DoNotMirrorDetachedShading;" );
 			}
 			for ( Loop1 = 1; Loop1 <= NumTooManyVertices; ++Loop1 ) {
 				Count = 0;
@@ -9389,7 +9443,7 @@ namespace SolarShading {
 			TotCount = 0;
 			if ( NumTooManyFigures > 0 ) {
 				ShowMessage( "Too many figures [>=" + RoundSigDigits( MaxHCS ) + "] in shadow overlap errors occurring..." );
-				ShowMessage( "These occur throughout the year and may occur several times for the same surfaces. You may be able to reduce them by adding OutputDiagnostics,DoNotMirrorDetachedShading;" );
+				ShowMessage( "These occur throughout the year and may occur several times for the same surfaces. " "You may be able to reduce them by adding OutputDiagnostics,DoNotMirrorDetachedShading;" );
 			}
 			for ( Loop1 = 1; Loop1 <= NumTooManyFigures; ++Loop1 ) {
 				Count = 0;

@@ -346,6 +346,9 @@ namespace HeatBalanceManager {
 		// Added SV 6/26/2013 to load scheduled surface gains
 		GetScheduledSurfaceGains( ErrorsFound );
 
+		// Added by TSN 1/12/2014 for QSS to load scheduled convective surface gains
+		GetScheduledConvectiveHeatGainSurfaces(ErrorsFound);
+
 		// Added TH 1/9/2009 to create thermochromic window constructions
 		CreateTCConstructions( ErrorsFound );
 
@@ -1052,37 +1055,45 @@ namespace HeatBalanceManager {
 		CurrentModuleObject = "ZoneAirMassFlowConservation";
 		NumObjects = GetNumObjectsFound(CurrentModuleObject);
 
-		if ( NumObjects > 0 ) {
-			GetObjectItem( CurrentModuleObject, 1, AlphaName, NumAlpha, BuildingNumbers, NumNumber, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
-			if ( NumAlpha > 0 ) {
-				{ auto const SELECT_CASE_var( AlphaName( 1 ) );
-				if ( SELECT_CASE_var == "YES" ) {
+		if (NumObjects > 0) {
+			GetObjectItem(CurrentModuleObject, 1, AlphaName, NumAlpha, BuildingNumbers, NumNumber, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames);
+			if (NumAlpha > 0) {
+				{ auto const SELECT_CASE_var(AlphaName(1));
+				if (SELECT_CASE_var == "YES") {
 					ZoneAirMassFlow.EnforceZoneMassBalance = true;
-				} else if ( SELECT_CASE_var == "NO" ) {
+				}
+				else if (SELECT_CASE_var == "NO") {
 					ZoneAirMassFlow.EnforceZoneMassBalance = false;
-				} else {
+				}
+				else {
 					ZoneAirMassFlow.EnforceZoneMassBalance = false;
 					AlphaName(1) = "NO";
-					ShowWarningError( CurrentModuleObject + ": Invalid input of " + cAlphaFieldNames(1) + ". The default choice is assigned = NO" );
-				}}
+					ShowWarningError(trim(CurrentModuleObject) + ": Invalid input of " + cAlphaFieldNames(1) + ". The default choice is assigned = NO");
+				} }
 			}
-			if ( NumAlpha > 1 ) {
-				{ auto const SELECT_CASE_var( AlphaName( 2 ) );
-				if ( SELECT_CASE_var == "ADDINFILTRATIONFLOW" ) {
+			if (NumAlpha > 1) {
+				{ auto const SELECT_CASE_var(AlphaName(2));
+				if (SELECT_CASE_var == "ADDINFILTRATIONFLOW") {
 					ZoneAirMassFlow.InfiltrationTreatment = true;
-					if ( !Contaminant.CO2Simulation ) Contaminant.SimulateContaminants = true;
-				} else if ( SELECT_CASE_var == "ADJUSTINFILTRATIONFLOW" ) {
+					if (!Contaminant.CO2Simulation) Contaminant.SimulateContaminants = true;
+				}
+				else if (SELECT_CASE_var == "ADJUSTINFILTRATIONFLOW") {
 					ZoneAirMassFlow.InfiltrationTreatment = 2;
-				} else {
+				}
+				else {
 					ZoneAirMassFlow.InfiltrationTreatment = 1;
 					AlphaName(2) = "ADDINFILTRATIONFLOW";
-					ShowWarningError( CurrentModuleObject + ": Invalid input of " + cAlphaFieldNames(2) + ". The default choice is assigned = NO" );
-				}}
-			} else {
+					ShowWarningError(trim(CurrentModuleObject) + ": Invalid input of " + cAlphaFieldNames(2) + ". The default choice is assigned = NO");
+				} }
+			}
+			else {
 				ZoneAirMassFlow.InfiltrationTreatment = 1;
 				AlphaName(2) = "ADDINFILTRATIONFLOW";
 			}
-		} else {
+
+
+		}
+		else{
 			ZoneAirMassFlow.EnforceZoneMassBalance = false;
 			AlphaName(1) = "NO";
 		}
@@ -1091,11 +1102,12 @@ namespace HeatBalanceManager {
 		//	MassConservation.allocate( NumOfZones );
 		//}
 
-		gio::write( OutputFileInits, Format_732 );
-		if ( ZoneAirMassFlow.EnforceZoneMassBalance ) {
-			gio::write( OutputFileInits, Format_733 ) << "Yes";
-		} else {
-			gio::write( OutputFileInits, Format_733 ) << "No";
+		gio::write(OutputFileInits, Format_732);
+		if (ZoneAirMassFlow.EnforceZoneMassBalance) {
+			gio::write(OutputFileInits, Format_733) << "Yes";
+		}
+		else {
+			gio::write(OutputFileInits, Format_733) << "No";
 		}
 
 	}
@@ -4005,19 +4017,19 @@ namespace HeatBalanceManager {
 			GetObjectItem( cCurrentModuleObject, Loop, cAlphaArgs, NumAlphas, rNumericArgs, NumNumbers, IOStatus, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
 			TMP = index( cAlphaArgs( 1 ), CHAR( 1 ) );
 			while ( TMP != std::string::npos ) {
-				cAlphaArgs( 1 )[ TMP ] = ',';
+				cAlphaArgs( 1 )[TMP] = ',';
 				TMP = index( cAlphaArgs( 1 ), CHAR( 1 ) );
 			}
 			TMP = index( cAlphaArgs( 1 ), CHAR( 2 ) );
 			while ( TMP != std::string::npos ) {
-				cAlphaArgs( 1 )[ TMP ] = '!';
+				cAlphaArgs( 1 )[TMP] = '!';
 				TMP = index( cAlphaArgs( 1 ), CHAR( 2 ) );
 			}
 
 			//    Make sure Zone Name is unique
 			ErrorInName = false;
 			IsBlank = false;
-			VerifyName( cAlphaArgs( 1 ), Zone.Name(), ZoneLoop, ErrorInName, IsBlank, cCurrentModuleObject + " Name" );
+			VerifyName( cAlphaArgs( 1 ), Zone.Name( ), ZoneLoop, ErrorInName, IsBlank, cCurrentModuleObject + " Name" );
 			if ( ErrorInName ) {
 				ErrorsFound = true;
 				continue;
@@ -4163,19 +4175,18 @@ namespace HeatBalanceManager {
 	}
 
 	void
-	ProcessZoneData(
+		ProcessZoneData( 
 		std::string const & cCurrentModuleObject,
 		int const ZoneLoop,
-		FArray1_string const & cAlphaArgs,
+		FArray1S_string cAlphaArgs,
 		int & NumAlphas,
-		FArray1< Real64 > const & rNumericArgs,
+		FArray1S< Real64 > rNumericArgs,
 		int & NumNumbers,
-		FArray1_bool const & lNumericFieldBlanks, //Unused
-		FArray1_bool const & lAlphaFieldBlanks,
-		FArray1_string const & cAlphaFieldNames,
-		FArray1_string const & cNumericFieldNames, //Unused
-		bool & ErrorsFound // If errors found in input
-	)
+		FArray1S_bool lNumericFieldBlanks,
+		FArray1S_bool lAlphaFieldBlanks,
+		FArray1S_string cAlphaFieldNames,
+		FArray1S_string cNumericFieldNames,
+		bool & ErrorsFound ) // If errors found in input
 	{
 
 		// SUBROUTINE INFORMATION:
@@ -6652,6 +6663,246 @@ Label1000: ;
 		}
 
 	}
+	// Added methods below by TSN for QSS
+	void
+		GetScheduledConvectiveHeatGainSurfaces(bool & ErrorsFound) // If errors found in input
+	{
+
+		// SUBROUTINE INFORMATION:
+		//       AUTHOR         Thierry S. Nouidui
+		//       DATE WRITTEN   January 2015
+		//       MODIFIED
+		//       RE-ENGINEERED  na
+
+		// PURPOSE OF THIS SUBROUTINE:
+		// Loads scheduled convective surface gains on interior side of opaque and transparent constructions. 
+
+		// METHODOLOGY EMPLOYED:
+		// na
+
+		// REFERENCES:
+		// na
+
+		// Using/Aliasing
+		using namespace DataIPShortCuts;
+		using InputProcessor::GetObjectDefMaxArgs;
+		using InputProcessor::GetObjectItem;
+		using InputProcessor::VerifyName;
+		using General::TrimSigDigits;
+		using DataSurfaces::TotSurfaces;
+		using DataSurfaces::Surface;
+		using DataSurfaces::TotSurfConHeaSSG;
+		using DataSurfaces::SurfConHeaSSG;
+		using DataHeatBalance::Construct;
+		using DataHeatBalance::TotConstructs;
+		using ScheduleManager::GetScheduleIndex;
+
+		// Locals
+		// SUBROUTINE ARGUMENT DEFINITIONS:
+
+		// SUBROUTINE PARAMETER DEFINITIONS:
+		static std::string const RoutineName("GetScheduledConvectiveHeatGainSurfaces: ");
+
+		// INTERFACE BLOCK SPECIFICATIONS:
+		// na
+
+		// DERIVED TYPE DEFINITIONS:
+		// na
+
+		// SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+		int NumArgs;
+		int NumAlpha;
+		int NumNumeric;
+		int Loop;
+		bool ErrorInName;
+		bool IsBlank;
+		int IOStat;
+		int SurfNum;
+		int ConstrNum;
+		int ScheduleNum;
+		int i;
+		int NumOfScheduledLayers;
+		int NumOfConstrLayers;
+		bool NumOfLayersMatch;
+		int iZone;
+
+		//-----------------------------------------------------------------------
+		//                SurfaceProperty:ConvectiveHeatGainsInside
+		//-----------------------------------------------------------------------
+		cCurrentModuleObject = "SurfaceProperty:ConvectiveHeatGainInsideSurface";
+
+		// Check if IDD definition is correct
+		GetObjectDefMaxArgs(cCurrentModuleObject, NumArgs, NumAlpha, NumNumeric);
+		if (NumAlpha != 4) {
+			ShowSevereError(RoutineName + cCurrentModuleObject + ": Object Definition indicates not = 4 Alpha Objects, Number Indicated=" + TrimSigDigits(NumAlpha));
+			ErrorsFound = true;
+		}
+
+		TotSurfConHeaSSG = GetNumObjectsFound(cCurrentModuleObject);
+		if (TotSurfConHeaSSG > 0) {
+			if (!allocated(SurfConHeaSSG)) {
+				SurfConHeaSSG.allocate(TotSurfConHeaSSG);
+			}
+
+			for (Loop = 1; Loop <= TotSurfConHeaSSG; ++Loop) {
+				GetObjectItem(cCurrentModuleObject, Loop, cAlphaArgs, NumAlpha, rNumericArgs, NumNumeric, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames);
+				ErrorInName = false;
+				IsBlank = false;
+				VerifyName(cAlphaArgs(1), SurfConHeaSSG.Name(), Loop, ErrorInName, IsBlank, cCurrentModuleObject + " Name");
+				if (ErrorInName) {
+					ShowContinueError("...each SurfaceProperty:ConvectiveHeatGainInsideSurface name must not duplicate other SurfaceProperty:ConvectiveHeatGainInsideSurface name");
+					ErrorsFound = true;
+					continue;
+				}
+
+				SurfConHeaSSG(Loop).Name = cAlphaArgs(1);
+
+				// Assign surface number
+				SurfNum = FindItemInList(cAlphaArgs(2), Surface.Name(), TotSurfaces);
+				if (SurfNum == 0) {
+					ShowSevereError(RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs(1) + ", object. Illegal value for " + cAlphaFieldNames(2) + " has been found.");
+					ShowContinueError(cAlphaFieldNames(2) + " entered value = \"" + cAlphaArgs(2) + "\" no corresponding surface (ref BuildingSurface:Detailed) has been found in the input file.");
+					ErrorsFound = true;
+				}
+				else {
+					SurfConHeaSSG(Loop).SurfPtr = SurfNum;
+				}
+
+				// Assign construction number
+				ConstrNum = FindItemInList(cAlphaArgs(3), Construct.Name(), TotConstructs);
+				if (ConstrNum == 0) {
+					ShowSevereError(RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs(1) + ", object. Illegal value for " + cAlphaFieldNames(3) + " has been found.");
+					ShowContinueError(cAlphaFieldNames(3) + " entered value = \"" + cAlphaArgs(3) + "\" no corresponding construction (ref Construction) has been found in the input file.");
+					ErrorsFound = true;
+				}
+				else {
+					SurfConHeaSSG(Loop).ConstrPtr = ConstrNum;
+				}
+
+				// Assign schedule number
+				ScheduleNum = GetScheduleIndex(cAlphaArgs(4));
+				if (ScheduleNum == 0) {
+					ShowSevereError(RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs(1) + ", object. Illegal value for " + cAlphaFieldNames(4) + " has been found.");
+					ShowContinueError(cAlphaFieldNames(4) + " entered value = \"" + cAlphaArgs(4) + "\" no corresponding schedule has been found in the input file.");
+					ErrorsFound = true;
+				}
+				else {
+					SurfConHeaSSG(Loop).SchedPtr = ScheduleNum;
+				}
+			}
+		}
+
+
+		// Check if scheduled surface gains are assigned to each surface in every zone.  If not then warning message to user will be
+		// issued
+		if (TotSurfConHeaSSG > 0) {
+			for (iZone = 1; iZone <= NumOfZones; ++iZone) {
+				CheckScheduledConvectiveHeatGainSurfaces(iZone);
+			}
+		}
+
+	}
+
+	void
+		CheckScheduledConvectiveHeatGainSurfaces(int const ZoneNum) // Zone number for which error check will be performed
+	{
+
+		// SUBROUTINE INFORMATION:
+		//       AUTHOR         Thierry S. Nouidui
+		//       DATE WRITTEN   January 2015
+		//       MODIFIED
+		//       RE-ENGINEERED  na
+
+		// PURPOSE OF THIS SUBROUTINE:
+		// Check if all surfaces within zone are scheduled with surface gains. If not all surfaces within zone are scheduled,
+		// warning message will be issued and program will continue to execute.
+
+		// METHODOLOGY EMPLOYED:
+		// na
+
+		// REFERENCES:
+		// na
+
+		// Using/Aliasing
+		using SolarShading::SurfaceScheduledConvectiveHeatGain;
+		using namespace DataSurfaces;
+
+		// Locals
+		// SUBROUTINE ARGUMENT DEFINITIONS:
+
+		// SUBROUTINE PARAMETER DEFINITIONS:
+		// na
+
+		// INTERFACE BLOCK SPECIFICATIONS:
+		// na
+
+		// DERIVED TYPE DEFINITIONS:
+		// na
+
+		// SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+		int iSurf;
+		int iConst;
+		int SchedPtr; // scheduled surface gains pointer
+		bool ZoneUnscheduled; // true if all surfaces in the zone are unscheduled
+		bool ZoneScheduled; // true if all surfaces in the zone are scheduled
+
+		ZoneUnscheduled = false;
+		ZoneScheduled = false;
+
+		for (iSurf = Zone(ZoneNum).SurfaceFirst; iSurf <= Zone(ZoneNum).SurfaceLast; ++iSurf) {
+			iConst = Surface(iSurf).Construction;
+			//if (Surface(iSurf).Class == SurfaceClass_Window) {
+			//	SchedPtr = WindowScheduledSolarAbs(iSurf, iConst);
+			//}
+			//else {
+			SchedPtr = SurfaceScheduledConvectiveHeatGain(iSurf, iConst);
+			//}
+			if (iSurf == Zone(ZoneNum).SurfaceFirst) {
+				if (SchedPtr != 0) {
+					ZoneScheduled = true;
+					ZoneUnscheduled = false;
+				}
+				else {
+					ZoneScheduled = false;
+					ZoneUnscheduled = true;
+				}
+			}
+			else {
+				if (SchedPtr != 0) {
+					ZoneUnscheduled = false;
+				}
+				else {
+					ZoneScheduled = false;
+				}
+			}
+
+			if ((!ZoneScheduled) && (!ZoneUnscheduled)) {
+				// zone is nor scheduled nor unscheduled
+				ShowWarningError("Zone " + Zone(ZoneNum).Name + " does not have all surfaces scheduled with surface gains.");
+				ShowContinueError("If at least one surface in the zone is scheduled with surface gains, then all other surfaces within the same zone should be scheduled as well.");
+				break;
+			}
+
+		}
+
+		if ((!ZoneScheduled) && (!ZoneUnscheduled)) {
+			for (iSurf = Zone(ZoneNum).SurfaceFirst; iSurf <= Zone(ZoneNum).SurfaceLast; ++iSurf) {
+				iConst = Surface(iSurf).Construction;
+				//if (Surface(iSurf).Class == SurfaceClass_Window) {
+				//	SchedPtr = WindowScheduledSolarAbs(iSurf, iConst);
+				//}
+				//else {
+				SchedPtr = SurfaceScheduledConvectiveHeatGain(iSurf, iConst);
+				//}
+
+				if (SchedPtr == 0) {
+					ShowContinueError("Surface " + Surface(iSurf).Name + " does not have scheduled surface gains.");
+				}
+			}
+		}
+
+	}
+
 
 	void
 	CreateTCConstructions( bool & ErrorsFound ) // If errors found in input
