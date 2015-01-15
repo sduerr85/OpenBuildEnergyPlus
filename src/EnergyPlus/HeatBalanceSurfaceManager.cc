@@ -211,7 +211,6 @@ namespace HeatBalanceSurfaceManager {
 		// The air heat balance must be called before the temperature history
 		// updates because there may be a radiant system in the building
 		if ( firstTime ) DisplayString( "Calculate Air Heat Balance" );
-		// Disabled by TSN for QSS
 		ManageAirHeatBalance();
 
 		// IF NECESSARY, do one final "average" heat balance pass.  This is only
