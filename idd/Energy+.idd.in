@@ -17286,6 +17286,25 @@ ComplexFenestrationProperty:SolarAbsorbedLayers,
        \type object-list
        \object-list ScheduleNames
 
+SurfaceProperty:ConvectiveHeatGainInsideSurface,
+       \memo Used to provide convective heat gain on inside surface. Reference surface-construction pair
+       \memo and if that pair is used in a simulation, then program will use value provided in schedule instead of calculating it.
+  A1,  \field Name
+       \required-field
+  A2,  \field Surface Name
+       \required-field
+       \type object-list
+       \object-list SurfaceNames
+  A3,  \field Construction Name
+       \required-field
+       \type object-list
+       \object-list ConstructionNames
+  A4;  \field Inside Surface Incident Sun Solar Radiation Schedule Name
+       \memo Values in schedule are expected to be in W/m2
+       \required-field
+       \type object-list
+       \object-list ScheduleNames	   
+	   
 ZoneProperty:UserViewFactors:bySurfaceName,
        \memo View factors for Surface to Surface in a zone.
        \memo (Number of Surfaces)**2 must be entered.
