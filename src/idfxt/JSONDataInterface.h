@@ -38,15 +38,15 @@ public:
     IDDxField(std::string name);
     ~IDDxField();
 
-    std::string name() {
-        return _name;
+    std::string fieldName() {
+        return _field_name;
     }
     void insertFieldProperties(std::string key, std::string value);
     std::string value(std::string property_type);
     uint32_t iddIndex();
 
 private:
-    std::string _name;
+    std::string _field_name;
     std::map< std::string, std::string> *_field_properties;
 //  Version Id      type       string
 //                 idd_order       1
@@ -59,8 +59,8 @@ public:
     IDDxObject(cJSON *obj);
     ~IDDxObject();
 
-    std::string getType() {
-        return _my_type;
+    std::string objectType() {
+        return _object_type;
     }
 
     std::string fieldValue(std::string field_name, std::string property_type);
@@ -71,12 +71,12 @@ public:
     bool isValid();
 
 private:
-    std::string _my_type;
-    std::shared_ptr< std::map<std::string, std::shared_ptr< IDDxField > > > _fields;
-    std::shared_ptr< std::map<std::string, std::string > > _object_properties;
+    std::string _object_type;
+    std::map<std::string, IDDxField> *_fields;
+    std::map<std::string, std::string> *_object_properties;
 
 
-    void insertField(std::shared_ptr< idfx::IDDxField > iddx_field);
+    void insertField(idfx::IDDxField iddx_field);
 
 //   Version    Version Id
 };
@@ -87,16 +87,15 @@ public:
     IDDxObjects(const std::string &json_content);
     ~IDDxObjects();
 
-    std::string getIDDxObjectFieldPropertyValue(std::string iddx_object_type, std::string field_name, std::string property_type);
-    std::string getIDDxObjectPropertyValue(std::string iddx_object_type, std::string property_type);
-  //  bool getIDDxObject(std::string iddx_object_type, std::shared_ptr< idfx::IDDxObject >& iddx_object);
-    std::shared_ptr<IDDxObject> getIDDxObjectPtr(std::string iddx_object_type);
+    std::string getIDDxObjectFieldPropertyValue(std::string iddx_object_type, std::string field_name, std::string property_type) const;
+    std::string getIDDxObjectPropertyValue(std::string iddx_object_type, std::string property_type) const;
+    IDDxObject *getIDDxObject(const std::string iddx_object_type) const;
 
 private:
-    std::shared_ptr< std::map<std::string, std::shared_ptr< IDDxObject > > > _iddx_object_map;
+    std::map<std::string, IDDxObject*> *_iddx_object_map;
 
     bool loadIDDxObjects(cJSON *schema_root);
-    void insertIDDxObject(std::shared_ptr<IDDxObject> iddx_object);
+    void insertIDDxObject(IDDxObject *iddx_object);
 
     //           version
 };
@@ -107,7 +106,7 @@ private:
 class IDFxObject
 {
 public:
-    IDFxObject(const std::string &json_content, std::shared_ptr<idfx::IDDxObjects> schema_objects);
+    IDFxObject(const std::string &json_content, const idfx::IDDxObjects &schema_objects);
     ~IDFxObject();
 
 
@@ -135,12 +134,12 @@ private:
     std::string _id;
     std::string _object_type;
 
-    std::shared_ptr<IDDxObject> _schema_object;
+    IDDxObject *_schema_object;
     std::map<std::string, std::string> *_properties;
-    std::vector<std::shared_ptr<IDFxObject> > *_extensions;
+    std::vector<IDFxObject*> *_extensions;
 
     void setProperties(cJSON *cjson_object);
-    void setExtensions(cJSON *cjson_object, std::string extension_type, std::shared_ptr< idfx::IDDxObjects > schema_objects);
+    void setExtensions(cJSON *cjson_object, std::string extension_type, const idfx::IDDxObjects schema_objects);
 };
 
 
@@ -150,13 +149,13 @@ public:
     IDFxObjects();//const std::string &json_content);
     ~IDFxObjects();
 
-    void insertIDFxObject(std::shared_ptr<IDFxObject> idfx_object);
-    std::shared_ptr< std::vector<std::shared_ptr< IDFxObject > > > objectVector() {
+    void insertIDFxObject(idfx::IDFxObject *idfx_object);
+    std::vector<IDFxObject* > * objectVector() {
         return _idfx_objects;
     }
 
 private:
-    std::shared_ptr< std::vector<std::shared_ptr< IDFxObject > > > _idfx_objects;
+    std::vector< IDFxObject* > *_idfx_objects;
 };
 
 
@@ -168,7 +167,7 @@ public:
     JSONDataInterface(const std::string &json_schema);
     ~JSONDataInterface();
 
-    std::map<std::string, std::shared_ptr<IDFxObject> > getModelObjects(std::string object_type);
+    std::map<std::string, IDFxObject* > getModelObjects(std::string object_type);
 
     bool exportIDFfile(std::string filename);
 
@@ -181,8 +180,8 @@ public:
 
 
 private:
-    std::shared_ptr<IDDxObjects> _schema_objects;
-    std::shared_ptr<IDFxObjects> _model_objects;
+    IDDxObjects *_schema_objects;
+    IDFxObjects *_model_objects;
 
     bool loadIDDxObjects(cJSON *schema_root);
 

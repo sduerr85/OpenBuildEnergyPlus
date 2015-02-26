@@ -18,7 +18,7 @@ using namespace std;
 using namespace idfx;
 
 IDDxField::IDDxField(string name):
-    _name(name),
+    _field_name(name),
     _field_properties(new map<string, string>())
 {
 
@@ -36,7 +36,7 @@ void IDDxField::insertFieldProperties(string key, string value)
 
 string IDDxField::value(string property_type)
 {
-    auto find_property = _field_properties->find(property_type);
+    auto find_property(_field_properties->find(property_type));
     return (find_property != _field_properties->end())
            ? find_property->second
            : "";
@@ -44,7 +44,7 @@ string IDDxField::value(string property_type)
 
 uint32_t IDDxField::iddIndex()
 {
-    auto find_property = _field_properties->find("idd_position");
+    auto find_property(_field_properties->find("idd_position"));
     return (find_property != _field_properties->end())
            ? stoi(find_property->second)
            : 0; // fields are 1-based
@@ -52,13 +52,13 @@ uint32_t IDDxField::iddIndex()
 
 
 IDDxObject::IDDxObject(cJSON *obj) :
-    _my_type(""),
-    _fields(make_shared<map<string, shared_ptr<IDDxField> > >()),
-    _object_properties(make_shared<map<string, string> >())
+    _object_type(""),
+    _fields(new map<string, IDDxField>),
+    _object_properties(new map<string, string>)
 {
     if (obj) {
-        _my_type = obj->string;
-        cout << "\n\n #### " << _my_type << endl;
+        _object_type = obj->string;
+        cout << "\n\n #### " << _object_type << endl;
         cJSON *fld = obj->child ;
         if (fld) {
             while (fld) { //object property
@@ -77,7 +77,7 @@ IDDxObject::IDDxObject(cJSON *obj) :
                 } else if (sub_obj == "reference") {
                     cout << "reference : array" << endl;
                 } else { //object field
-                    shared_ptr<IDDxField> field( make_shared<IDDxField>(sub_obj));
+                    IDDxField *field = new IDDxField(sub_obj);
                     cJSON *prop = fld->child;
                     if (prop) {
                         while (prop) {
@@ -85,14 +85,14 @@ IDDxObject::IDDxObject(cJSON *obj) :
                             switch (prop->type) {
                             case cJSON_Number: { //get numeric types
                                 string key = prop->string;
-                                double property_value = (prop->valuedouble) ? prop->valuedouble : prop->valueint;
+                                double property_value((prop->valuedouble) ? prop->valuedouble : prop->valueint);
                                 cout << key << " : " << to_string(property_value) << endl;
                                 field->insertFieldProperties(key, to_string(property_value));
                                 break;
                             }
                             case cJSON_String: { //get alpha types
                                 string key = prop->string;
-                                string property_value = prop->valuestring;
+                                string property_value(prop->valuestring);
                                 cout << key << " : " << property_value << endl;
                                 field->insertFieldProperties(key, property_value);
                                 break;
@@ -118,7 +118,7 @@ IDDxObject::IDDxObject(cJSON *obj) :
                 fld = fld->next;
             }
         } else {
-            cout << "\nERROR: schema object didn't import correctly : " << _my_type  << endl;
+            cout << "\nERROR: schema object didn't import correctly : " << _object_type  << endl;
         }
     } else {
         cout << "\nERROR: invalid object in schema" << endl;
@@ -127,7 +127,8 @@ IDDxObject::IDDxObject(cJSON *obj) :
 
 IDDxObject::~IDDxObject()
 {
-
+    delete _fields;
+    delete _object_properties;
 }
 
 bool IDDxObject::isValid()
@@ -136,23 +137,23 @@ bool IDDxObject::isValid()
 }
 
 
-void IDDxObject::insertField(shared_ptr< IDDxField > iddx_field)
+void IDDxObject::insertField(IDDxField iddx_field)
 {
-    _fields->emplace(iddx_field->name(), iddx_field);
+    _fields->emplace(iddx_field.fieldName(), iddx_field);
 }
 
 string IDDxObject::fieldValue(string field_name, string property_type)
 {
-    auto find_field = _fields->find(field_name);
+    auto find_field(_fields->find(field_name));
     if (find_field != _fields->end()) {
         auto found_field = find_field->second;
-        return found_field->value(property_type);
+        return found_field.value(property_type);
     } else return "";
 }
 
 string IDDxObject::propertyValue(string property_name)
 {
-    auto find_property = _object_properties->find(property_name);
+    auto find_property(_object_properties->find(property_name));
     if (find_property != _object_properties->end()) {
         return find_property->second;
     } else return "";
@@ -162,7 +163,7 @@ string IDDxObject::idd_field(uint32_t field_index)
 {
     cout << " idd_field" << endl;
     auto flds =  orderedFieldNames();
-// why is _fields invalid here?
+
 //for (auto const & one_field : *_fields) {
 
 //         auto one_field_properties = one_field.second;
@@ -179,15 +180,15 @@ vector< string > IDDxObject::orderedFieldNames()
     uint32_t field_count = _fields->size();
     vector<string>  return_vector(field_count);
 
-
+//TODO: do this
 
 }
 
 
 IDDxObjects::IDDxObjects(const string &json_content) :
-    _iddx_object_map(make_shared<std::map<std::string, std::shared_ptr< IDDxObject > > >())
+    _iddx_object_map(new map<string, IDDxObject * >())
 {
-    cJSON *data_dictionary = cJSON_Parse(json_content.c_str());
+    cJSON *data_dictionary(cJSON_Parse(json_content.c_str()));
     if (data_dictionary) {
         if (!loadIDDxObjects(data_dictionary))
             cout << "\nERROR: failed to populate schema object map." << endl;
@@ -199,15 +200,15 @@ IDDxObjects::IDDxObjects(const string &json_content) :
 
 IDDxObjects::~IDDxObjects()
 {
-
+    delete _iddx_object_map;
 }
 
 
 bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
 {
-    cJSON *obj = schema_root->child;
+    cJSON *obj(schema_root->child);
     while (obj) {
-        auto one_object = make_shared<IDDxObject>(obj);
+        auto one_object = new IDDxObject(obj);
 //             if (one_object.isValid()) {
         insertIDDxObject(one_object);
         /*} else {
@@ -219,70 +220,61 @@ bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
     return true;
 }
 
-void IDDxObjects::insertIDDxObject(shared_ptr< IDDxObject > iddx_object)
+void IDDxObjects::insertIDDxObject(IDDxObject *iddx_object)
 {
-    _iddx_object_map->emplace(iddx_object->getType(), iddx_object);
+    _iddx_object_map->emplace(iddx_object->objectType(), iddx_object);
 }
 
-string IDDxObjects::getIDDxObjectFieldPropertyValue(string iddx_object_type, string field_name, string property_type)
+string IDDxObjects::getIDDxObjectFieldPropertyValue(string iddx_object_type, string field_name, string property_type) const
 {
-    auto find_object = _iddx_object_map->find(iddx_object_type);
+    auto find_object(_iddx_object_map->find(iddx_object_type));
     if (find_object != _iddx_object_map->end()) {
         auto found_object = find_object->second;
         return found_object->fieldValue(field_name, property_type);
     } else return "";
 }
 
-string IDDxObjects::getIDDxObjectPropertyValue(string iddx_object_type, string property_type)
+string IDDxObjects::getIDDxObjectPropertyValue(string iddx_object_type, string property_type) const
 {
-    auto find_object = _iddx_object_map->find(iddx_object_type);
+    auto find_object(_iddx_object_map->find(iddx_object_type));
     if (find_object != _iddx_object_map->end()) {
         auto found_object = find_object->second;
         return found_object->propertyValue(property_type);
     } else return "";
 }
 
-// bool IDDxObjects::getIDDxObject(string iddx_object_type, std::shared_ptr<IDDxObject> &iddx_object)
-// {
-//     auto find_object = _iddx_object_map->find(iddx_object_type);
-//     if (find_object != _iddx_object_map->end()) {
-//         iddx_object = find_object->second;
-//         return true;
-//     } else {
-//         return false; //make_shared<IDDxObject>(IDDxObject(cJSON_CreateObject()));
-//     }
-// }
-
-shared_ptr< IDDxObject > IDDxObjects::getIDDxObjectPtr(string iddx_object_type)
+IDDxObject *IDDxObjects::getIDDxObject(const string iddx_object_type) const
 {
-    auto find_object = _iddx_object_map->find(iddx_object_type);
+    auto find_object(_iddx_object_map->find(iddx_object_type));
     if (find_object != _iddx_object_map->end()) {
-        return find_object->second;//make_shared<IDDxObject>(find_object->second);
+        return find_object->second;
     } else {
-        return nullptr; 
+        return nullptr;
     }
 }
 
 
-IDFxObject::IDFxObject(const string &json_content, shared_ptr< idfx::IDDxObjects > schema_objects) :
+IDFxObject::IDFxObject(const string &json_content, const IDDxObjects &schema_objects) :
     _id(""),
     _object_type(""),
+    _schema_object(nullptr),
     _properties(new std::map<std::string, std::string>()),
-    _extensions(new std::vector<std::shared_ptr<IDFxObject> >())
+    _extensions(new std::vector<IDFxObject *>)
 {
     cJSON *valid_object(cJSON_Parse(json_content.c_str()));
     if (valid_object) {
         setProperties(valid_object);
         _id = value("_id");
         _object_type = value("_type");
-        if (schema_objects->getIDDxObjectPtr(_object_type)) { //, _schema_object)) {
-            string extension_type = _schema_object->propertyValue("extension_type");
+        _schema_object = schema_objects.getIDDxObject(_object_type);
+        if (_schema_object) {
+            string extension_type(_schema_object->propertyValue("extension_type"));
             if (extension_type != "") {
                 //TODO: include an extensible object in sample input file to test
                 setExtensions(valid_object, extension_type, schema_objects);
             }
         } else {
-            cout << "\nERROR: failed to find schema object for: " << _object_type << endl;
+            cout << "\nERROR: failed to get _schema_object for: " << _object_type << endl;
         }
     } else {
         cout << "\nERROR: failed to extract object type from cJSON structure." << endl;
@@ -296,16 +288,16 @@ IDFxObject::~IDFxObject()
     delete _properties;
 }
 
-void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, shared_ptr<IDDxObjects> schema_objects)
+void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, const IDDxObjects schema_objects)
 {
     if (cjson_object) {
-        cJSON *json_child = cjson_object->child;
+        cJSON *json_child(cjson_object->child);
         if (json_child) {
 
 //TODO: implement this when including sample extension objects
 
             do {
-                _extensions->emplace_back(make_shared<IDFxObject>(IDFxObject(cJSON_Print(json_child), schema_objects)));
+                _extensions->emplace_back(new IDFxObject(cJSON_Print(json_child), schema_objects));
                 json_child = json_child->next;
             } while (json_child);
         }
@@ -315,19 +307,19 @@ void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, share
 void IDFxObject::setProperties(cJSON *cjson_object)
 {
     if (cjson_object) {
-        cJSON *property = cjson_object->child;
+        cJSON *property(cjson_object->child);
         if (property) {
             while (property) {
-                string property_name = property->string;
+                string property_name(property->string);
                 switch (property->type) {
                 case cJSON_Number: { //get numeric types
-                    double property_value = (property->valuedouble) ? property->valuedouble : property->valueint;
+                    double property_value((property->valuedouble) ? property->valuedouble : property->valueint);
                     cout << property_name << " : " << property_value << endl;
                     _properties->emplace(property_name, to_string(property_value));
                     break;
                 }
                 case cJSON_String: { //get alpha types
-                    string property_value = (property->valuestring) ? property->valuestring : "";
+                    string property_value((property->valuestring) ? property->valuestring : "");
                     cout << property_name << " : " << property_value << endl;
                     _properties->emplace(property_name, property_value);
                     break;
@@ -345,7 +337,7 @@ void IDFxObject::setProperties(cJSON *cjson_object)
 
 std::string IDFxObject::value(string field_name)
 {
-    auto search  = _properties->find(field_name);
+    auto search(_properties->find(field_name));
     return (search != _properties->end())
            ? search->second
            : "";
@@ -379,7 +371,7 @@ std::string IDFxObject::value(u_int32_t field_index)
 /////////////////////////// IDFxObjects  ///////////////////////////////
 
 IDFxObjects::IDFxObjects(): //const string &json_content) :
-    _idfx_objects(make_shared<vector<shared_ptr<IDFxObject> > >())
+    _idfx_objects(new vector<IDFxObject* >())
 {
 
 }
@@ -390,7 +382,7 @@ IDFxObjects::~IDFxObjects()
 }
 
 
-void IDFxObjects::insertIDFxObject(shared_ptr< IDFxObject > idfx_object)
+void IDFxObjects::insertIDFxObject(IDFxObject *idfx_object)
 {
     _idfx_objects->emplace_back(idfx_object);
 }
@@ -404,8 +396,8 @@ void IDFxObjects::insertIDFxObject(shared_ptr< IDFxObject > idfx_object)
 
 
 JSONDataInterface::JSONDataInterface(const string &json_schema) :
-    _schema_objects(make_shared<IDDxObjects>(json_schema)),
-    _model_objects(make_shared<IDFxObjects>())
+    _schema_objects(new IDDxObjects(json_schema)),
+    _model_objects(new IDFxObjects())
 {
     randomize();  //prepare uuid generation function
 }
@@ -416,9 +408,9 @@ JSONDataInterface::~JSONDataInterface()
 }
 
 
-std::map<std::string, std::shared_ptr<IDFxObject> > JSONDataInterface::getModelObjects(std::string object_type)
+std::map<std::string, IDFxObject* > JSONDataInterface::getModelObjects(std::string object_type)
 {
-    std::map<std::string, std::shared_ptr<IDFxObject> > return_object_list;
+    std::map<std::string, IDFxObject * > return_object_list;
 
 
 
@@ -456,9 +448,9 @@ std::map<std::string, std::shared_ptr<IDFxObject> > JSONDataInterface::getModelO
 bool JSONDataInterface::exportIDFfile(string filename)
 {
     //open file buffer
-    ofstream idf_file(filename + ".idf", ofstream::trunc |ofstream::out );
+    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
-        for (auto& one_object : *_model_objects->objectVector()) {
+        for (auto & one_object : *_model_objects->objectVector()) {
             //create line of one object
             string this_object_type = one_object->objectType();
             string object_string = this_object_type;
@@ -473,7 +465,7 @@ bool JSONDataInterface::exportIDFfile(string filename)
 //
 //
 //             }
-            object_string.append(extension_type +";\n");
+            object_string.append(extension_type + ";\n");
             cout << object_string;
             //put line in file buffer
             idf_file << object_string;
@@ -596,11 +588,11 @@ bool JSONDataInterface::importIDFxModel(const string &json_content)
     //TODO: maybe move this into the IDFxObjects
     cJSON *data_model = cJSON_Parse(json_content.c_str());
     if (data_model->child) {
-        cJSON *mdl = data_model->child;
+        cJSON *mdl(data_model->child);
         if (mdl) {
-            cJSON *obj = mdl->child;
+            cJSON *obj(mdl->child);
             while (obj) {
-                auto one_object = make_shared<IDFxObject>(cJSON_Print(obj), _schema_objects);
+                auto one_object(new IDFxObject(cJSON_Print(obj), *_schema_objects));
                 if (one_object) {
                     _model_objects->insertIDFxObject(one_object);
                 } else {
