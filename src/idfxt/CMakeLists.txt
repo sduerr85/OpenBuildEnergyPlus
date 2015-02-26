@@ -5,7 +5,7 @@ set(SRC
   idd-full.h
   idd-minimal-ordered.h
 )
-
+add_definitions(-std=c++11)
 add_library(JSONDataAPI ${SRC})
 add_executable(idfxt main.cpp)
 target_link_libraries(idfxt JSONDataAPI cJSON)

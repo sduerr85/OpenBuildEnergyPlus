@@ -56,7 +56,7 @@ void initData()
 int actionJSON(string in_file)
 {
     //TODO: check file type, or auto determine it and remove input type switch
-    Data->importJsonModel(in_file); //load Data
+    Data->importIDFxFile(in_file); //load Data
     if (!Data->validateModel()) {
         cout << "FAILURE: Invalid values detected in - " << in_file << endl;
         return 1;
@@ -69,7 +69,7 @@ int actionJSON(string in_file)
 int actionTranslate(string in_file)
 {
     //TODO: check file type, or auto determine it and remove input type switch
-    Data->importIDFModel(in_file);  //load Data
+    Data->importIDFFile(in_file);  //load Data
     if (!Data->validateModel()) {
         cout << "FAILURE: Invalid values detected in - " << in_file << endl;
         return 1;
@@ -81,26 +81,29 @@ int actionTranslate(string in_file)
 
 void test_DumpPropertyMaps(string in_file)
 {
-    Data->importIDFModel(in_file);  //load Data
-    auto allobjects = Data->getModelObjects();
-    while (!allobjects.empty()) {
-        auto one_object(allobjects.front());
-        //cout << oneObject->print();
-        for (const auto & one : one_object->getProperties()) {
-            cout << one.first << " : " << one.second << endl;
-        }
-        for (const auto & child : one_object->getExtensions()) {
-            if (child) {
-                //	  cout << endl << " ---  " << child->print();
-                cout << " ---------------- \n";
-                for (const auto & key_val : child->getProperties()) {
-                    cout << " ---  " << key_val.first << " : " << key_val.second << endl;
-                }
-            }
-        }
-        cout << endl << endl;
-        allobjects.pop_front();
-    }
+   Data->importIDFxFile(in_file);  //load Data
+    
+//     auto allobjects = Data->getModelObjects();
+//     while (!allobjects.empty()) {
+//         auto one_object(allobjects.front());
+//         //cout << oneObject->print();
+//         for (const auto & one : one_object->getProperties()) {
+//             cout << one.first << " : " << one.second << endl;
+//         }
+//         for (const auto & child : one_object->getExtensions()) {
+//             if (child) {
+//                 //	  cout << endl << " ---  " << child->print();
+//                 cout << " ---------------- \n";
+//                 for (const auto & key_val : child->getProperties()) {
+//                     cout << " ---  " << key_val.first << " : " << key_val.second << endl;
+//                 }
+//             }
+//         }
+//         cout << endl << endl;
+//         allobjects.pop_front();
+//     }
+//     
+    Data->exportIDFfile(in_file);
 }
 
 

@@ -5,167 +5,627 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <type_traits>
 
-#include "idd-minimal-ordered.h"
+//#include "idd-minimal-ordered.h"
 
 //forward declarations
 void randomize();
+std::string getUuid();
+
 
 using namespace std;
 using namespace idfx;
 
-
-JSONDataObject::JSONDataObject(const string &json_content) :
-    data_j(cJSON_Parse(json_content.c_str()))
+IDDxField::IDDxField(string name):
+    _name(name),
+    _field_properties(new map<string, string>())
 {
 
 }
 
-//JSONDataObject::JSONDataObject(cJSON &cjson) :
-//    data_j(&cjson)
-//{
-
-//}
-
-JSONDataObject::~JSONDataObject()
+IDDxField::~IDDxField()
 {
-    cJSON_Delete(data_j);
+    delete _field_properties;
 }
 
-void JSONDataObject::c_getChildren(std::list<std::shared_ptr<JSONDataObject> > &return_object_list, cJSON *subitem)
+void IDDxField::insertFieldProperties(string key, string value)
 {
-    while (subitem) {
-            if (subitem->type == cJSON_Array) {
-                int i;
-                for (i = 0; i < cJSON_GetArraySize(subitem); i++) {
-                    cJSON *idfx_extension = cJSON_GetArrayItem(subitem, i);
-                    return_object_list.push_back(make_shared<JSONDataObject>(cJSON_Print(idfx_extension)));
+    _field_properties->emplace(key, value);
+}
+
+string IDDxField::value(string property_type)
+{
+    auto find_property = _field_properties->find(property_type);
+    return (find_property != _field_properties->end())
+           ? find_property->second
+           : "";
+}
+
+uint32_t IDDxField::iddIndex()
+{
+    auto find_property = _field_properties->find("idd_position");
+    return (find_property != _field_properties->end())
+           ? stoi(find_property->second)
+           : 0; // fields are 1-based
+}
+
+
+IDDxObject::IDDxObject(cJSON *obj) :
+    _my_type(""),
+    _fields(make_shared<map<string, shared_ptr<IDDxField> > >()),
+    _object_properties(make_shared<map<string, string> >())
+{
+    if (obj) {
+        _my_type = obj->string;
+        cout << "\n\n #### " << _my_type << endl;
+        cJSON *fld = obj->child ;
+        if (fld) {
+            while (fld) { //object property
+                string sub_obj = fld->string;
+                cout << " -- " << sub_obj << endl;
+                if ((sub_obj == "extension_type")
+                        || (sub_obj == "group")
+                        || (sub_obj == "memo")
+                        || (sub_obj == "unique_object")
+                        || (sub_obj == "required_object")
+                        || (sub_obj == "extension")) {
+
+                    cout << sub_obj << " == " << fld->valuestring << endl;
+                    _object_properties->emplace(sub_obj, fld->valuestring);
+
+                } else if (sub_obj == "reference") {
+                    cout << "reference : array" << endl;
+                } else { //object field
+                    shared_ptr<IDDxField> field( make_shared<IDDxField>(sub_obj));
+                    cJSON *prop = fld->child;
+                    if (prop) {
+                        while (prop) {
+
+                            switch (prop->type) {
+                            case cJSON_Number: { //get numeric types
+                                string key = prop->string;
+                                double property_value = (prop->valuedouble) ? prop->valuedouble : prop->valueint;
+                                cout << key << " : " << to_string(property_value) << endl;
+                                field->insertFieldProperties(key, to_string(property_value));
+                                break;
+                            }
+                            case cJSON_String: { //get alpha types
+                                string key = prop->string;
+                                string property_value = prop->valuestring;
+                                cout << key << " : " << property_value << endl;
+                                field->insertFieldProperties(key, property_value);
+                                break;
+                            }
+                            case cJSON_Array: { //TODO: object_list and reference always get treated like array - fix in input iddx
+                                string key = prop->string;
+//                             string property_value = prop->valuestring;
+                                cout << key << " : " << "array" << endl;
+//                             iterate array
+//                             field->insertFieldProperties(key, property_value);
+                                field->insertFieldProperties(key, "array");
+                                break;
+                            }
+                            default: {
+                                // nothing to do
+                                break;
+                            }
+                            }
+                            prop = prop->next;
+                        }
+                    }
                 }
-	    }
-        subitem = subitem->next;
+                fld = fld->next;
+            }
+        } else {
+            cout << "\nERROR: schema object didn't import correctly : " << _my_type  << endl;
+        }
+    } else {
+        cout << "\nERROR: invalid object in schema" << endl;
     }
 }
 
-std::list<std::shared_ptr<JSONDataObject> > JSONDataObject::getExtensions()
+IDDxObject::~IDDxObject()
 {
-    std::list<std::shared_ptr<JSONDataObject> > return_object_list;
-    c_getChildren(return_object_list, data_j->child);
-    return return_object_list;
+
 }
 
-std::map<std::string, std::string> JSONDataObject::getProperties()
+bool IDDxObject::isValid()
 {
-    map<string, string> property_map;
-    for (int i = 0; i < cJSON_GetArraySize(data_j); i++) {
-        cJSON *property = cJSON_GetArrayItem(data_j, i);
+    return false; //TODO: fix me,use me - (_fields->size() && (type() != "")) ? true : false;
+}
+
+
+void IDDxObject::insertField(shared_ptr< IDDxField > iddx_field)
+{
+    _fields->emplace(iddx_field->name(), iddx_field);
+}
+
+string IDDxObject::fieldValue(string field_name, string property_type)
+{
+    auto find_field = _fields->find(field_name);
+    if (find_field != _fields->end()) {
+        auto found_field = find_field->second;
+        return found_field->value(property_type);
+    } else return "";
+}
+
+string IDDxObject::propertyValue(string property_name)
+{
+    auto find_property = _object_properties->find(property_name);
+    if (find_property != _object_properties->end()) {
+        return find_property->second;
+    } else return "";
+}
+
+string IDDxObject::idd_field(uint32_t field_index)
+{
+    cout << " idd_field" << endl;
+    auto flds =  orderedFieldNames();
+// why is _fields invalid here?
+//for (auto const & one_field : *_fields) {
+
+//         auto one_field_properties = one_field.second;
+//         if (one_field_properties->iddIndex() == field_index) {
+//             return one_field.first;
+//         }
+    //  }
+}
+
+vector< string > IDDxObject::orderedFieldNames()
+{
+    cout << " orderedFieldNames" << endl;
+
+    uint32_t field_count = _fields->size();
+    vector<string>  return_vector(field_count);
+
+
+
+}
+
+
+IDDxObjects::IDDxObjects(const string &json_content) :
+    _iddx_object_map(make_shared<std::map<std::string, std::shared_ptr< IDDxObject > > >())
+{
+    cJSON *data_dictionary = cJSON_Parse(json_content.c_str());
+    if (data_dictionary) {
+        if (!loadIDDxObjects(data_dictionary))
+            cout << "\nERROR: failed to populate schema object map." << endl;
+        cJSON_Delete(data_dictionary);
+    } else {
+        cout << "\nERROR: json schema string load failure - \n" << endl << cJSON_GetErrorPtr();
+    }
+}
+
+IDDxObjects::~IDDxObjects()
+{
+
+}
+
+
+bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
+{
+    cJSON *obj = schema_root->child;
+    while (obj) {
+        auto one_object = make_shared<IDDxObject>(obj);
+//             if (one_object.isValid()) {
+        insertIDDxObject(one_object);
+        /*} else {
+            cout << "FAIL: " << one_object.type() << endl;
+            return false;
+        }*/
+        obj = obj->next;
+    }
+    return true;
+}
+
+void IDDxObjects::insertIDDxObject(shared_ptr< IDDxObject > iddx_object)
+{
+    _iddx_object_map->emplace(iddx_object->getType(), iddx_object);
+}
+
+string IDDxObjects::getIDDxObjectFieldPropertyValue(string iddx_object_type, string field_name, string property_type)
+{
+    auto find_object = _iddx_object_map->find(iddx_object_type);
+    if (find_object != _iddx_object_map->end()) {
+        auto found_object = find_object->second;
+        return found_object->fieldValue(field_name, property_type);
+    } else return "";
+}
+
+string IDDxObjects::getIDDxObjectPropertyValue(string iddx_object_type, string property_type)
+{
+    auto find_object = _iddx_object_map->find(iddx_object_type);
+    if (find_object != _iddx_object_map->end()) {
+        auto found_object = find_object->second;
+        return found_object->propertyValue(property_type);
+    } else return "";
+}
+
+// bool IDDxObjects::getIDDxObject(string iddx_object_type, std::shared_ptr<IDDxObject> &iddx_object)
+// {
+//     auto find_object = _iddx_object_map->find(iddx_object_type);
+//     if (find_object != _iddx_object_map->end()) {
+//         iddx_object = find_object->second;
+//         return true;
+//     } else {
+//         return false; //make_shared<IDDxObject>(IDDxObject(cJSON_CreateObject()));
+//     }
+// }
+
+shared_ptr< IDDxObject > IDDxObjects::getIDDxObjectPtr(string iddx_object_type)
+{
+    auto find_object = _iddx_object_map->find(iddx_object_type);
+    if (find_object != _iddx_object_map->end()) {
+        return find_object->second;//make_shared<IDDxObject>(find_object->second);
+    } else {
+        return nullptr; 
+    }
+}
+
+
+IDFxObject::IDFxObject(const string &json_content, shared_ptr< idfx::IDDxObjects > schema_objects) :
+    _id(""),
+    _object_type(""),
+    _properties(new std::map<std::string, std::string>()),
+    _extensions(new std::vector<std::shared_ptr<IDFxObject> >())
+{
+    cJSON *valid_object(cJSON_Parse(json_content.c_str()));
+    if (valid_object) {
+        setProperties(valid_object);
+        _id = value("_id");
+        _object_type = value("_type");
+        if (schema_objects->getIDDxObjectPtr(_object_type)) { //, _schema_object)) {
+            string extension_type = _schema_object->propertyValue("extension_type");
+            if (extension_type != "") {
+                //TODO: include an extensible object in sample input file to test
+                setExtensions(valid_object, extension_type, schema_objects);
+            }
+        } else {
+            cout << "\nERROR: failed to find schema object for: " << _object_type << endl;
+        }
+    } else {
+        cout << "\nERROR: failed to extract object type from cJSON structure." << endl;
+    }
+}
+
+
+IDFxObject::~IDFxObject()
+{
+    delete _extensions;
+    delete _properties;
+}
+
+void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, shared_ptr<IDDxObjects> schema_objects)
+{
+    if (cjson_object) {
+        cJSON *json_child = cjson_object->child;
+        if (json_child) {
+
+//TODO: implement this when including sample extension objects
+
+            do {
+                _extensions->emplace_back(make_shared<IDFxObject>(IDFxObject(cJSON_Print(json_child), schema_objects)));
+                json_child = json_child->next;
+            } while (json_child);
+        }
+    }
+}
+
+void IDFxObject::setProperties(cJSON *cjson_object)
+{
+    if (cjson_object) {
+        cJSON *property = cjson_object->child;
         if (property) {
-            string property_name = property->string;
-            switch (property->type) {
-            case cJSON_Number: { //get numeric types
-                double property_value = (property->valuedouble) ? property->valuedouble : property->valueint;
-                property_map.emplace(property_name, to_string(property_value));
-                break;
-            }
-            case cJSON_String: { //get alpha types
-                string property_value = property->valuestring;
-                property_map.emplace(property_name, property_value);
-                break;
-            }
-            default: {
-                // nothing to do
-                break;
-            }
+            while (property) {
+                string property_name = property->string;
+                switch (property->type) {
+                case cJSON_Number: { //get numeric types
+                    double property_value = (property->valuedouble) ? property->valuedouble : property->valueint;
+                    cout << property_name << " : " << property_value << endl;
+                    _properties->emplace(property_name, to_string(property_value));
+                    break;
+                }
+                case cJSON_String: { //get alpha types
+                    string property_value = (property->valuestring) ? property->valuestring : "";
+                    cout << property_name << " : " << property_value << endl;
+                    _properties->emplace(property_name, property_value);
+                    break;
+                }
+                default: {
+                    // nothing to do
+                    break;
+                }
+                }
+                property = property->next;
             }
         }
-//        for (const auto& child : this->getChildren() ) {
-//            if (child){
-//                auto child_properties = child->getProperties();
-//                for (const auto& key_val : child_properties) {
-//                    property_map.emplace(key_val.first, key_val.second);
-//                }
-//            }
-//        }
     }
-    return property_map;
 }
 
-
-std::string JSONDataObject::print()
+std::string IDFxObject::value(string field_name)
 {
-    return cJSON_Print(data_j);
+    auto search  = _properties->find(field_name);
+    return (search != _properties->end())
+           ? search->second
+           : "";
+}
+
+std::string IDFxObject::value(u_int32_t field_index)
+{
+//   cout << _schema_object->idd_field(field_index) <<endl;
+    return value(_schema_object->idd_field(field_index));
+}
+
+// list<std::string> IDFxObject::dataIDF()
+// {
+//     list<string> return_list;
+//     return_list.emplace(return_list.end(), _object_type);
+//     if (value("extension_type") != "")
+//
+//
+//     for (int i = 0; i < _property_count; i++) {
+//         return_list.emplace(return_list.end(), value(i));
+//     }
+// //    for(const auto &one_object: getExtensions()) {
+// //         for(string one_field: one_object->data()) {
+// //             return_list.emplace(return_list.end(), one_field);
+// //         }
+// //     }
+//     return return_list;
+// }
+
+
+/////////////////////////// IDFxObjects  ///////////////////////////////
+
+IDFxObjects::IDFxObjects(): //const string &json_content) :
+    _idfx_objects(make_shared<vector<shared_ptr<IDFxObject> > >())
+{
+
+}
+
+IDFxObjects::~IDFxObjects()
+{
+
+}
+
+
+void IDFxObjects::insertIDFxObject(shared_ptr< IDFxObject > idfx_object)
+{
+    _idfx_objects->emplace_back(idfx_object);
 }
 
 
 
-/////////////////////////////////////////////////////
+
+
+////////////////////// JSONDataInterface ///////////////////////////////
 
 
 
-JSONDataInterface::JSONDataInterface(const string &json_schema)
+JSONDataInterface::JSONDataInterface(const string &json_schema) :
+    _schema_objects(make_shared<IDDxObjects>(json_schema)),
+    _model_objects(make_shared<IDFxObjects>())
 {
     randomize();  //prepare uuid generation function
-    schema_j = cJSON_Parse(json_schema.c_str());
-    if (!schema_j)
-        cout << "ERROR: schema load failure - " << endl << cJSON_GetErrorPtr();
-    model_j = cJSON_CreateObject();
-    if (!model_j)
-        cout << "ERROR: model create failure - " << endl << cJSON_GetErrorPtr();
-    //TBD: throw on ERROR
 }
 
 JSONDataInterface::~JSONDataInterface()
 {
-    cJSON_Delete(schema_j);
-    cJSON_Delete(model_j);
+
 }
 
-std::list<std::shared_ptr<JSONDataObject> > JSONDataInterface::getModelObjects(string object_type)
+
+std::map<std::string, std::shared_ptr<IDFxObject> > JSONDataInterface::getModelObjects(std::string object_type)
 {
-    std::list<std::shared_ptr<JSONDataObject> > return_object_list;
-    for (int i = 0; i < cJSON_GetArraySize(model_j); ++i) {
-        cJSON *subItem = cJSON_GetArrayItem(model_j, i);
-        if (subItem) {
-            //this next line would benefit from a direct cJSON object constructor,
-            //we can optimize later, if necessary.
-            return_object_list.push_back(make_shared<JSONDataObject>(cJSON_Print(subItem)));
-        } else {
-            cout << "ERROR: subItem not returned" << endl;
-        }
-    }
+    std::map<std::string, std::shared_ptr<IDFxObject> > return_object_list;
+
+
+
+//     cJSON *subitem=item->child;
+// 	while (subitem)
+// 	{
+// 		// handle subitem
+// 		if (subitem->child) parse_object(subitem->child);
+//
+// 		subitem=subitem->next;
+// 	}
+//
+
+
+
+
+
+
+
+    //     for (int i = 0; i < cJSON_GetArraySize(_model_j); ++i) {
+//
+//
+//         if (subItem) {
+//             const string item_type = subItem->string;
+//             if (item_type.find(object_type) != std::string::npos ) {
+//                 return_object_list.push_back(make_pair<std::string, std::shared_ptr<JSONDataObject> >(item_type, make_shared<JSONDataObject>(cJSON_Print(subItem) add_pointer_to_schema_cJSON ));
+//             }
+//         } else {
+//             cout << "ERROR: subItem not returned" << endl;
+//         }
+//     }
     return return_object_list;
 }
 
-std::list<JSONDataObject> JSONDataInterface::getModelObjectDataByIndex(string object_uuid, int index)
+bool JSONDataInterface::exportIDFfile(string filename)
 {
+    //open file buffer
+    ofstream idf_file(filename + ".idf", ofstream::trunc |ofstream::out );
+    if (idf_file.is_open()) {
+        for (auto& one_object : *_model_objects->objectVector()) {
+            //create line of one object
+            string this_object_type = one_object->objectType();
+            string object_string = this_object_type;
+            cout << endl << one_object->propertyCount();
+            for (int i = 0; i < one_object->propertyCount(); i++) {
+                //  cout << "field string : " << one_object->value(i) << endl << endl;
+                object_string.append("," + one_object->value(one_object->value(i)));
+            }
+            string extension_type = _schema_objects->getIDDxObjectPropertyValue(this_object_type, "extension_type");
+//             if (extension_type != "") { //TODO: get extension object once,and iterate it into local variables for inner loop;
+// 		for (auto& one_extension_object : one_object->extension
+//
+//
+//             }
+            object_string.append(extension_type +";\n");
+            cout << object_string;
+            //put line in file buffer
+            idf_file << object_string;
+        }
 
+//   write file buffer
+        idf_file.close();
+        return true;
+    }
+    return false;
 }
 
-cJSON *JSONDataInterface::getSchemaObject(const string &object_type)
+
+
+//std::list<std::vector <std::string> > JSONDataInterface::getOldModelObjects()
+//{
+//    list<vector <string> > return_list;
+//     vector <string> object_data_vector;
+//     for (auto & object : getModelObjects()) {
+//         auto object_properties = object->getProperties();
+//         const string object_type = object_properties.find("object_type")->second;
+//         cout << "*****object_type******************           " << object_type << endl;
+//         object_data_vector.push_back(object_type + ",");
+// //       cJSON *idd_object = cJSON_GetObjectItem(idd_ordered, object_type.c_str());
+//         if (idd_object) {
+//             unsigned int schema_field_count = 10000;
+//             cJSON *schema_object = cJSON_GetObjectItem(_schema_j, object_type.c_str());
+//             if (schema_object) {
+//                 schema_field_count = cJSON_GetArraySize(schema_object);
+//
+//                 unsigned int idd_field_count = cJSON_GetArraySize(idd_object);
+//                 unsigned int base_object_loop_count = (idd_field_count < schema_field_count) ? idd_field_count : schema_field_count;
+//                 unsigned int field_counter;
+//                 for (field_counter = 0; field_counter <= base_object_loop_count; ++field_counter) {
+//                     cJSON *field_object = cJSON_GetArrayItem(idd_object, field_counter);
+//                     string data = "";
+// //                 string data_x = "";
+//                     if (field_object) {
+//                         const string field_name = field_object->valuestring;
+//                         auto field_data = object_properties.find(field_name);
+//                         if (field_data != object_properties.end()) {
+//                             data = field_data->second;
+//                             string terminus = (field_counter == base_object_loop_count - 1) ? ";" : ",";
+//                             object_data_vector.push_back(data + terminus);
+//                         }
+//                     }
+//                 }
+//
+//                 string object_type_x = object_type + "_x";
+//                 cJSON *schema_x_object = cJSON_GetObjectItem(_schema_j, object_type_x.c_str());
+//                 if (schema_x_object) {
+//
+//                     // make ordered_stringlist of schema_j-extension object field_names based on idd_position
+//                     // for(number of extension objects) {
+//
+//
+//                     // for (each ordered field_name stringlist) {
+//                     //  append value
+//
+//
+//                     //} //for (each ordered field_name stringlist)
+//                     //} //for(number of extension objects)
+//
+//
+// //                     ++field_counter;
+//
+//
+//                 }
+//
+//
+//                 object_data_vector.push_back("");
+//             }
+//
+// //         cout << " ------------------ " << endl;
+// //         for (auto & one : object_data_vector) {
+// //             cout << one << endl;
+// //         }
+// //         cout << endl;
+// // 	cout << endl << " ------------------ " << endl;
+//         }
+//         return_list.push_back(object_data_vector);
+//
+//
+//
+//     }
+
+//  return return_list;
+
+//put object_type into array at [0]
+//for each item in ordered schema object, put matching labeled data into array
+
+
+//when ordered schema object item is not found in json schema object, switch to extensible
+
+//for each extensible object, process and append data strings to array
+
+//}
+
+
+void JSONDataInterface::importIDFxFile(string filename)
 {
-    return cJSON_GetObjectItem(schema_j, object_type.c_str());
+    ifstream idfj(filename.c_str(), std::ifstream::in);
+    if (idfj) {
+        string json_data = string((std::istreambuf_iterator<char>(idfj)), std::istreambuf_iterator<char>());
+        if (json_data != "") {
+            if (!importIDFxModel(json_data)) {
+                cout << "\nFAILURE: Invalid values detected in imported IDF" << endl;
+            }
+        } else {
+            cout << "\nERROR: JSON data not read from file. " << endl;
+        }
+    } else {
+        cout << "\nERROR: file not open. " << endl;
+    }
 }
 
-cJSON *JSONDataInterface::getModelRootObject()
-{
-    return model_j;
-}
 
 bool JSONDataInterface::importIDFxModel(const string &json_content)
 {
-    model_j = cJSON_Parse(json_content.c_str());
-    if (!model_j->child) {
-        cout << "ERROR: failure reading input file: " << endl << cJSON_GetErrorPtr();
+    //TODO: maybe move this into the IDFxObjects
+    cJSON *data_model = cJSON_Parse(json_content.c_str());
+    if (data_model->child) {
+        cJSON *mdl = data_model->child;
+        if (mdl) {
+            cJSON *obj = mdl->child;
+            while (obj) {
+                auto one_object = make_shared<IDFxObject>(cJSON_Print(obj), _schema_objects);
+                if (one_object) {
+                    _model_objects->insertIDFxObject(one_object);
+                } else {
+                    cout << "\nFAIL: object creation - " << one_object->objectType() << endl;
+                    return false;
+                }
+                obj = obj->next;
+            }
+        }
+        return validateModel();//always true, at the moment
+    } else {
+        cout << "\nERROR: failure reading input file: " << endl << cJSON_GetErrorPtr();
         return false;
     }
-    return validateModel();
+
 }
+
+
 
 void JSONDataInterface::writeJSONdata(const string &filename)
 {
-    ofstream idfj(filename.c_str());
-    if (idfj) {
-        idfj << cJSON_Print(model_j);
-    }
+//     ofstream idfj(filename.c_str());
+//     if (idfj) {
+//         idfj << cJSON_Print(_model_j);
+//     }
 }
 
 void JSONDataInterface::checkRange(cJSON *attribute, const string &property_name, const string &child_name, bool &valid, double property_value)
@@ -214,38 +674,40 @@ void JSONDataInterface::checkNumeric(double property_value, const string &proper
 
 bool JSONDataInterface::validateModel()
 {
+    // now object validates itself
+
     bool valid = true;
-    cJSON *child = model_j->child;
-    if (child) {
-        do {
-            string child_name = child->string;
-            for (int i = 0; i < cJSON_GetArraySize(child); i++) {
-                cJSON *property = cJSON_GetArrayItem(child, i);
-                if (property) {
-                    string property_name = property->string;
-                    switch (property->type) {
-                    case cJSON_Number: { //check numeric types
-                        double property_value = (property->valuedouble) ? property->valuedouble : property->valueint;
-                        cJSON *schema_object = getSchemaObject(child_name);
-                        checkNumeric(property_value, property_name, schema_object, valid, child_name);
-                        break;
-                    }
-                    case cJSON_String: { //check alpha types
-                        //TBD - check choice and/or reference cases?
-                        break;
-                    }
-                    default: {
-                        // nothing to do
-                        break;
-                    }
-                    }
-                }
-            }
-            child = child->next;
-        } while (child);
-    } else {
-        cout << "ERROR: model is empty" << endl;
-    }
+//     cJSON *child = _model_j->child;
+//     if (child) {
+//         do {
+//             string child_name = child->string;
+//             for (int i = 0; i < cJSON_GetArraySize(child); i++) {
+//                 cJSON *property = cJSON_GetArrayItem(child, i);
+//                 if (property) {
+//                     string property_name = property->string;
+//                     switch (property->type) {
+//                     case cJSON_Number: { //check numeric types
+//                         double property_value = (property->valuedouble) ? property->valuedouble : property->valueint;
+//                         // now object validates itself   cJSON *schema_object = getSchemaObject(child_name);
+//                         checkNumeric(property_value, property_name, schema_object, valid, child_name);
+//                         break;
+//                     }
+//                     case cJSON_String: { //check alpha types
+//                         //TBD - check choice and/or reference cases?
+//                         break;
+//                     }
+//                     default: {
+//                         // nothing to do
+//                         break;
+//                     }
+//                     }
+//                 }
+//             }
+//             child = child->next;
+//         } while (child);
+//     } else {
+//         cout << "ERROR: model is empty" << endl;
+//     }
 
     return valid;
 }
@@ -338,23 +800,6 @@ std::string &trimString(std::string &str)
     return str;
 }
 
-void JSONDataInterface::importJsonModel(string filename)
-{
-    ifstream idfj(filename.c_str(), std::ifstream::in);
-    if (idfj) {
-        string json_data = string((std::istreambuf_iterator<char>(idfj)), std::istreambuf_iterator<char>());
-        if (json_data != "") {
-            if (!validateModel()) {
-                cout << "FAILURE: Invalid values detected in imported IDF" << endl;
-            }
-        } else {
-            cout << "ERROR: JSON data not read from file. " << endl;
-        }
-    } else {
-        cout << "ERROR: file not open. " << endl;
-    }
-}
-
 vector<string> getFileObjectStrings(string filename)
 {
     string oneline = "";
@@ -429,78 +874,72 @@ void insertField(cJSON *full_schema_object, const char *object_type, unsigned in
 }
 
 
-void JSONDataInterface::importIDFModel(string filename)
+void JSONDataInterface::importIDFFile(string filename)
 {
-    //this is specific to importing IDF text files, therefore cJSON model sequestered here
-    cJSON *idd_ordered = cJSON_Parse(getIDD().c_str());
-    if (!idd_ordered)
-        cout << cJSON_GetErrorPtr();
-
-    vector<string> object_instance_lines = getFileObjectStrings(filename);
-    for (string objstr : object_instance_lines) {
-        auto obj_props = splitString(objstr, ',');
-        string object_string = obj_props.at(0);
-        //rudimentary capture of Version
-        if ((object_string == "Version") || (object_string == "VERSION")) {
-            string version = obj_props.at(1);
-            if (version != ACCEPTED_VERSION) {
-                cout << "idfxt TRANSLATOR ONLY WORKS ON VERSION 8.2 IDF INPUT FILES" << endl << "this file version is:  " << version << endl;
-                break;
-            }
-        }
-        const char *object_type = object_string.c_str();
-        cJSON *schema_object = cJSON_GetObjectItem(idd_ordered, object_type);
-        if (schema_object) {
-            unsigned int schema_field_count = cJSON_GetArraySize(schema_object);
-            unsigned int model_field_count = obj_props.size() - 1;
-            unsigned int base_field_count = (model_field_count < schema_field_count) ? model_field_count : schema_field_count;
-            cJSON *current_object = cJSON_CreateObject();
-            if (current_object) {
-                cJSON_AddItemToObject(getModelRootObject(), getUuid().c_str(), current_object);
-                cJSON_AddStringToObject(current_object, "object_type", object_type);
-                //set this loop count for base object
-                cJSON *full_schema_object = getSchemaObject(object_type);
-                if (full_schema_object) {
-                    unsigned int field_counter;
-                    for (field_counter = 1; field_counter <= base_field_count; ++field_counter) {
-                        cJSON *field_object = cJSON_GetArrayItem(schema_object, field_counter - 1);
-                        insertField(full_schema_object, object_type, field_counter, obj_props, field_object, current_object);
-                    }
-                    // if obj_props remain, use 'em up in extension objects
-                    string extension_test_string = object_type;
-                    extension_test_string.append("_x");  //TODO: extract value from object's "extension_type", if name convention changes
-                    cJSON *extension_type = cJSON_GetObjectItem(idd_ordered, extension_test_string.c_str());
-                    if (extension_type) {
-                        cJSON *extension_array = cJSON_CreateArray();
-                        cJSON_AddItemToObject(current_object, "extensions", extension_array);
-                        unsigned int field_total = obj_props.size();
-                        while (field_counter < field_total) {
-                            cJSON *extension_object = cJSON_CreateObject();
-                            if (extension_object) {
-                                int size = cJSON_GetArraySize(extension_type);
-                                for (int f = 0; f < size; ++f) {
-                                    cJSON *extension_field = cJSON_GetArrayItem(extension_type, f);
-                                    if (extension_field) {
-                                        const char *extension_field_name = extension_field->valuestring;
-                                        cJSON *schema_extension_object = getSchemaObject(extension_test_string.c_str());
-                                        if (schema_extension_object) {
-                                            cJSON *field_data = cJSON_GetObjectItem(schema_extension_object, extension_field_name);
-                                            if (field_data) {
-                                                insertTypedData(obj_props, extension_object, field_counter, extension_test_string.c_str(), extension_field_name, field_data);
-                                            }
-                                        }
-                                        field_counter++;
-                                    }
-                                }
-                                cJSON_AddItemToArray(extension_array, extension_object);
-                            }
-                        }
-                    }
-                }
-            } else {
-                cout << "ERROR: type \"" << object_type << "\" is not found in E+ " << ACCEPTED_VERSION << " schema." << endl;
-            }
-        }
-    }
-    cJSON_Delete(idd_ordered);
+//     vector<string> object_instance_lines = getFileObjectStrings(filename);
+//     for (string objstr : object_instance_lines) {
+//         auto obj_props = splitString(objstr, ',');
+//         string object_string = obj_props.at(0);
+//         //rudimentary capture of Version
+//         if ((object_string == "Version") || (object_string == "VERSION")) {
+//             string version = obj_props.at(1);
+//             if (version != ACCEPTED_VERSION) {
+//                 cout << "idfxt TRANSLATOR ONLY WORKS ON VERSION 8.2 IDF INPUT FILES" << endl << "this file version is:  " << version << endl;
+//                 break;
+//             }
+//         }
+//         const char *object_type = object_string.c_str();
+// //       cJSON *schema_object = cJSON_GetObjectItem(idd_ordered, object_type);
+//         if (schema_object) {
+//             unsigned int schema_field_count = cJSON_GetArraySize(schema_object);
+//             unsigned int model_field_count = obj_props.size() - 1;
+//             unsigned int base_field_count = (model_field_count < schema_field_count) ? model_field_count : schema_field_count;
+//             cJSON *current_object = cJSON_CreateObject();
+//             if (current_object) {
+//                 cJSON_AddItemToObject(getModelRootObject(), getUuid().c_str(), current_object);
+//                 cJSON_AddStringToObject(current_object, "object_type", object_type);
+//                 //set this loop count for base object
+//                 cJSON *full_schema_object = getSchemaObject(object_type);
+//                 if (full_schema_object) {
+//                     unsigned int field_counter;
+//                     for (field_counter = 1; field_counter <= base_field_count; ++field_counter) {
+//                         cJSON *field_object = cJSON_GetArrayItem(schema_object, field_counter - 1);
+//                         insertField(full_schema_object, object_type, field_counter, obj_props, field_object, current_object);
+//                     }
+//                     // if obj_props remain, use 'em up in extension objects
+//                     string extension_test_string = object_type;
+//                     extension_test_string.append("_x");  //TODO: extract value from object's "extension_type", if name convention changes
+// //                    cJSON *extension_type = cJSON_GetObjectItem(idd_ordered, extension_test_string.c_str());
+//                     if (extension_type) {
+//                         cJSON *extension_array = cJSON_CreateArray();
+//                         cJSON_AddItemToObject(current_object, "extensions", extension_array);
+//                         unsigned int field_total = obj_props.size();
+//                         while (field_counter < field_total) {
+//                             cJSON *extension_object = cJSON_CreateObject();
+//                             if (extension_object) {
+//                                 int size = cJSON_GetArraySize(extension_type);
+//                                 for (int f = 0; f < size; ++f) {
+//                                     cJSON *extension_field = cJSON_GetArrayItem(extension_type, f);
+//                                     if (extension_field) {
+//                                         const char *extension_field_name = extension_field->valuestring;
+//                                         cJSON *schema_extension_object = getSchemaObject(extension_test_string.c_str());
+//                                         if (schema_extension_object) {
+//                                             cJSON *field_data = cJSON_GetObjectItem(schema_extension_object, extension_field_name);
+//                                             if (field_data) {
+//                                                 insertTypedData(obj_props, extension_object, field_counter, extension_test_string.c_str(), extension_field_name, field_data);
+//                                             }
+//                                         }
+//                                         field_counter++;
+//                                     }
+//                                 }
+//                                 cJSON_AddItemToArray(extension_array, extension_object);
+//                             }
+//                         }
+//                     }
+//                 }
+//             } else {
+//                 cout << "ERROR: type \"" << object_type << "\" is not found in E+ " << ACCEPTED_VERSION << " schema." << endl;
+//             }
+//         }
+//     }
 }
