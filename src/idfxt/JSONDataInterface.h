@@ -38,12 +38,14 @@ public:
     IDDxField(std::string name);
     ~IDDxField();
 
-    std::string fieldName() {
+    std::string fieldName() const {
         return _field_name;
     }
     void insertFieldProperties(std::string key, std::string value);
     std::string value(std::string property_type);
     uint32_t iddIndex();
+
+    void debugDump();
 
 private:
     std::string _field_name;
@@ -69,14 +71,16 @@ public:
     std::vector<std::string> orderedFieldNames();
 
     bool isValid();
+    
+        void debugDump();
 
 private:
     std::string _object_type;
-    std::map<std::string, IDDxField> *_fields;
+    std::map<std::string, IDDxField *> *_fields;
     std::map<std::string, std::string> *_object_properties;
 
 
-    void insertField(idfx::IDDxField iddx_field);
+//     void insertField(idfx::IDDxField &iddx_field);
 
 //   Version    Version Id
 };
@@ -90,6 +94,8 @@ public:
     std::string getIDDxObjectFieldPropertyValue(std::string iddx_object_type, std::string field_name, std::string property_type) const;
     std::string getIDDxObjectPropertyValue(std::string iddx_object_type, std::string property_type) const;
     IDDxObject *getIDDxObject(const std::string iddx_object_type) const;
+    
+    void debugDump();
 
 private:
     std::map<std::string, IDDxObject*> *_iddx_object_map;
@@ -146,9 +152,10 @@ private:
 class IDFxObjects
 {
 public:
-    IDFxObjects();//const std::string &json_content);
+    IDFxObjects(const IDDxObjects & schema_objects);
     ~IDFxObjects();
-
+    
+    bool importIDFxModel(const std::string &json_content);
     void insertIDFxObject(idfx::IDFxObject *idfx_object);
     std::vector<IDFxObject* > * objectVector() {
         return _idfx_objects;
@@ -156,6 +163,8 @@ public:
 
 private:
     std::vector< IDFxObject* > *_idfx_objects;
+    IDDxObjects *_schema_objects;
+
 };
 
 
