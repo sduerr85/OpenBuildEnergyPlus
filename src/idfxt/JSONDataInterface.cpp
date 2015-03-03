@@ -222,13 +222,17 @@ uint32_t IDDxObject::orderedFieldCount()
 
 
 
-vector< string > IDDxObject::orderedFieldNames()
+std::deque< std::string > IDDxObject::orderedFieldNames(bool extension_type)
 {
     uint32_t field_count = orderedFieldCount();
-    vector<string>  return_vector(field_count);
-    return_vector[0] = _object_type;
+    deque<string>  return_vector(field_count);
     for (const auto & field : *_fields) {
         return_vector[field.second->iddIndex()] = field.second->fieldName();
+    }
+    if (!extension_type) {
+        return_vector[0] = _object_type; //put object type on front of deque
+    } else {
+        return_vector.pop_front(); // remove empty first item
     }
     return return_vector;
 }
@@ -427,30 +431,35 @@ std::string IDFxObject::value(string field_name)
 //     return value(_schema_object->idd_field(field_index));
 // }
 
-string IDFxObject::dataIDF(string data_string)
-{
-//     if ((data_string == "") /*&&
-//             (value("extension_type") != "")*/) {
-//         data_string.append(_object_type + ",\n");
-//     }
-
-    for (auto & field_name : _schema_object->orderedFieldNames()) {
-
+string IDFxObject::dataIDF()
+{ //nasty hack to generate the comma separated format, the orderly data extraction is in hand.
+    string data_string("");
+    for (const auto & field_name : _schema_object->orderedFieldNames()) {
         data_string.append((field_name == _object_type) ? _object_type : value(field_name));
         data_string.append(",\n");
     }
-
-//    for(const auto &one_object: getExtensions()) {
-//         for(string one_field: one_object->data()) {
-//             return_list.emplace(return_list.end(), one_field);
-//         }
-//     }
-
+    
     data_string.pop_back();//\n
     data_string.pop_back();//,
+    
+    for (const auto & one_extension : *_extensions) {
+        data_string.append(",\n");
+        data_string.append(one_extension->dataIDFextensions());
+    }
+    
+
     return data_string + ";\n\n";
 }
 
+string IDFxObject::dataIDFextensions()
+{
+    string data_string("");
+    for (const auto & field_name : _schema_object->orderedFieldNames(true)) {
+        data_string.append((field_name == _object_type) ? _object_type : value(field_name));
+    }
+
+    return data_string;
+}
 
 /////////////////////////// IDFxObjects  ///////////////////////////////
 
@@ -582,8 +591,8 @@ std::map<std::string, IDFxObject * > JSONDataInterface::getModelObjects(std::str
 bool JSONDataInterface::exportIDFfile(string filename)
 {
     //open file buffer
-    //ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
-    ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
+    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
+//   ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
         //    cout << " ###################################### exporting IDF .... " << endl;
         //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
@@ -699,9 +708,9 @@ void JSONDataInterface::importIDFxFile(string filename)
     } else {
         cout << "\nERROR: file not open. " << endl;
     }
-    
+
 //    _model_objects->debugDump();
-    
+
     //   return validateModel();//always true, at the moment
 }
 

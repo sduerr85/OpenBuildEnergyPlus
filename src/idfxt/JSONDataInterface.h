@@ -17,7 +17,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <vector>
+#include <deque>
 #include <chrono>
 #include <random>
 
@@ -69,7 +69,7 @@ public:
     std::string propertyValue(std::string property_name);
     std::string idd_field(uint32_t field_index);
     uint32_t orderedFieldCount();
-    std::vector<std::string> orderedFieldNames();
+    std::deque< std::string > orderedFieldNames(bool extension_type = false);
 
     bool isValid();
     
@@ -119,7 +119,7 @@ public:
 
 
     std::string print();
-    std::string dataIDF(std::string data_string = "");
+    std::string dataIDF();
 
     std::string objectType() {
         return _object_type;
@@ -147,6 +147,8 @@ private:
     std::vector<IDFxObject*> *_extensions;
 
     void setProperties(cJSON *cjson_object);
+    
+    std::string dataIDFextensions();
 };
 
 
