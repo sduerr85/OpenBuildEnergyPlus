@@ -68,6 +68,7 @@ public:
     std::string fieldValue(std::string field_name, std::string property_type);
     std::string propertyValue(std::string property_name);
     std::string idd_field(uint32_t field_index);
+    uint32_t orderedFieldCount();
     std::vector<std::string> orderedFieldNames();
 
     bool isValid();
@@ -112,12 +113,12 @@ private:
 class IDFxObject
 {
 public:
-    IDFxObject(const std::string &json_content, const idfx::IDDxObjects &schema_objects);
+    IDFxObject(const std::string& json_content, const idfx::IDDxObjects& schema_objects);
     ~IDFxObject();
 
 
     std::string print();
-//   std::list< std::string > dataIDF();
+    std::string dataIDF(std::string data_string = "");
 
     std::string objectType() {
         return _object_type;
@@ -135,7 +136,7 @@ public:
     std::string value(u_int32_t field_index);
 
 
-
+    void debugDump();
 private:
     std::string _id;
     std::string _object_type;
@@ -161,6 +162,7 @@ public:
         return _idfx_objects;
     }
 
+    void debugDump();
 private:
     std::vector< IDFxObject* > *_idfx_objects;
     IDDxObjects *_schema_objects;

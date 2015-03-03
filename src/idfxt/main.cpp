@@ -82,8 +82,9 @@ int actionTranslate(string in_file)
 void test_DumpPropertyMaps(string in_file)
 {
    Data->importIDFxFile(in_file);  //load Data
-    
-//     auto allobjects = Data->getModelObjects();
+    cout << "in" ;
+
+    //     auto allobjects = Data->getModelObjects();
 //     while (!allobjects.empty()) {
 //         auto one_object(allobjects.front());
 //         //cout << oneObject->print();

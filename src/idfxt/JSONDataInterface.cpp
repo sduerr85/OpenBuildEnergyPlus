@@ -52,7 +52,7 @@ uint32_t IDDxField::iddIndex()
 
 void IDDxField::debugDump()
 {
-    cout << "pppppppppppppppppppppppppp" << endl;
+    cout << "pppp " << _field_name << " pppppppp" << endl;
     for (auto & one_property : *_field_properties) {
         cout << one_property.first << " : " << one_property.second << endl;
     }
@@ -62,31 +62,26 @@ void IDDxField::debugDump()
 
 IDDxObject::IDDxObject(cJSON *obj) :
     _object_type(""),
-    _fields(new map<string, IDDxField *>),
-    _object_properties(new map<string, string>)
+    _fields(new map<string, IDDxField *>()),
+    _object_properties(new map<string, string>())
 {
     if (obj) {
         _object_type = obj->string;
-//         cout << "\n\n #### " << _object_type << endl;
-        cJSON *fld = obj->child ;
-        if (fld) {
-            while (fld) { //object property
-                string sub_obj = fld->string;
-//                 cout << " -- " << sub_obj << endl;
-                if ((sub_obj == "extension_type")
-                        || (sub_obj == "group")
-                        || (sub_obj == "memo")
-                        || (sub_obj == "unique_object")
-                        || (sub_obj == "required_object")
-                        || (sub_obj == "extension")) {
-
-//                     cout << sub_obj << " == " << fld->valuestring << endl;
-                    _object_properties->emplace(sub_obj, fld->valuestring);
-
-                } else if (sub_obj == "reference") {
-                    string key = fld->string;
+        cJSON *field = obj->child ;
+        if (field) {
+            string field_key = "";
+            while (field) { //object property
+                field_key = field->string;
+                if ((field_key == "extension_type")
+                        || (field_key == "group")
+                        || (field_key == "memo")
+                        || (field_key == "unique_object")
+                        || (field_key == "required_object")
+                        || (field_key == "extension")) {
+                    _object_properties->emplace(field_key, field->valuestring);
+                } else if (field_key == "reference") {
                     string pipe_string = "";
-                    cJSON *array_item = fld->child;
+                    cJSON *array_item = field->child;
                     if (array_item) {
                         while (array_item) {
                             pipe_string.append(array_item->valuestring);
@@ -95,60 +90,58 @@ IDDxObject::IDDxObject(cJSON *obj) :
                                 pipe_string.append("|");
                             }
                         }
-                        _object_properties->emplace(sub_obj, pipe_string);
+                        _object_properties->emplace(field_key, pipe_string);
                     } else { //TODO: this needs update, when the IDDx is made regular with respect to "refernce" as array
-                        _object_properties->emplace(sub_obj, fld->valuestring);
+                        _object_properties->emplace(field_key, field->valuestring);
                     }
                 } else { //object field
-                    IDDxField *field = new IDDxField(sub_obj);
-                    cJSON *prop = fld->child;
-                    if (prop) {
-                        string key = "";
-                        while (prop) {
-                            switch (prop->type) {
-                            case cJSON_Number: { //get numeric types
-                                key = prop->string;
-                                double property_value((prop->valuedouble) ? prop->valuedouble : prop->valueint);
-//                                 cout << key << " : " << to_string(property_value) << endl;
-                                field->insertFieldProperties(key, to_string(property_value));
-                                break;
-                            }
-                            case cJSON_String: { //get alpha types
-                                key = prop->string;
-                                string property_value(prop->valuestring);
-//                                 cout << key << " : " << property_value << endl;
-                                field->insertFieldProperties(key, property_value);
-                                break;
-                            }
-                            case cJSON_Array: { //TODO: object_list and reference always get treated like array - fix in input iddx
-                                key = prop->string;
-                                string pipe_string = "";
-                                cJSON *array_item = cJSON_GetArrayItem(prop, 0);
-                                if (array_item) {
-                                    while (array_item) {
-                                        pipe_string.append(array_item->valuestring);
-                                        array_item = array_item->next;
-                                        if (array_item) {
-                                            pipe_string.append("|");
-                                        }
-                                    }
-                                }
-//                                         cout << _object_type << " : " << key << " : " << pipe_string << endl;
-                                field->insertFieldProperties(key, pipe_string);
-                                break;
-                            }
-                            default: {
-                                // nothing to do
-                                break;
-                            }
-                            }
-                            prop = prop->next;
+                    IDDxField *field_object = new IDDxField(field_key);
+                    cJSON *property = field->child;
+                    string property_key = "";
+                    while (property) {
+                        property_key = property->string;
+                        switch (property->type) {
+                        case cJSON_Number: { //get numeric types
+                            double property_value((property->valuedouble) ? property->valuedouble : property->valueint);
+                            field_object->insertFieldProperties(property_key, to_string(property_value));
+                            break;
                         }
-
-                        _fields->emplace(key, field);
+                        case cJSON_String: { //get alpha types
+                            string property_value(property->valuestring);
+                            field_object->insertFieldProperties(property_key, property_value);
+                            break;
+                        }
+                        case cJSON_True: { //get alpha types
+                            field_object->insertFieldProperties(property_key, "true");
+                            break;
+                        }
+                        case cJSON_False: { //get alpha types
+                            field_object->insertFieldProperties(property_key, "false");
+                            break;
+                        }
+                        case cJSON_Array: { //TODO: object_list and reference always get treated like array - fix in input iddx
+                            string pipe_string = "";
+                            cJSON *array_item = cJSON_GetArrayItem(property, 0);
+                            while (array_item) {
+                                pipe_string.append(array_item->valuestring);
+                                array_item = array_item->next;
+                                if (array_item) {
+                                    pipe_string.append("|");
+                                }
+                            }
+                            field_object->insertFieldProperties(property_key, pipe_string);
+                            break;
+                        }
+                        default: {
+                            cout << "\n******************************\n*******MISSED**DATA***********\n******************************\n" << endl;
+                            break;
+                        }
+                        }
+                        property = property->next;
                     }
+                    _fields->emplace(field_key, field_object);
                 }
-                fld = fld->next;
+                field = field->next;
             }
         } else {
             cout << "\nERROR: schema object didn't import correctly : " << _object_type  << endl;
@@ -204,40 +197,51 @@ string IDDxObject::propertyValue(string property_name)
     } else return "";
 }
 
-string IDDxObject::idd_field(uint32_t field_index)
-{
-    cout << " idd_field" << endl;
-    auto flds =  orderedFieldNames();
-
-//for (auto const & one_field : *_fields) {
-
-//         auto one_field_properties = one_field.second;
-//         if (one_field_properties->iddIndex() == field_index) {
-//             return one_field.first;
+// string IDDxObject::idd_field(uint32_t field_index)
+// {
+//     string field_name("...");
+//   //  auto flds =  orderedFieldNames(); //TODO: cache this in private data member
+//
+//     for (auto const & one_field : *_fields) {
+//
+//         if (one_field.second->iddIndex() == field_index) {
+//             field_name = one_field.second->fieldName();
 //         }
-    //  }
+//     }
+//     return field_name;
+// }
+uint32_t IDDxObject::orderedFieldCount()
+{
+    int32_t count = 1; //including index 0 for object_type
+    for (const auto & one : *_fields) {
+        cout << "count fld " << one.first << endl;
+        if (one.second->iddIndex() != 0)
+            count ++;
+    }
+    return count;
 }
+
+
 
 vector< string > IDDxObject::orderedFieldNames()
 {
-//     cout << " orderedFieldNames" << endl;
-
-    uint32_t field_count = _fields->size();
+    uint32_t field_count = orderedFieldCount();
     vector<string>  return_vector(field_count);
-
-//TODO: do this
-
+    for (const auto & field : *_fields) {
+        return_vector[field.second->iddIndex()] = field.second->fieldName();
+    }
+    return return_vector;
 }
 
 
-IDDxObjects::IDDxObjects(const string &json_content) :
+IDDxObjects::IDDxObjects(const string &json_content):
     _iddx_object_map(new map<string, IDDxObject * >())
 {
     cJSON *data_dictionary(cJSON_Parse(json_content.c_str()));
     if (data_dictionary) {
         if (!loadIDDxObjects(data_dictionary))
             cout << "\nERROR: failed to populate schema object map." << endl;
-        cJSON_Delete(data_dictionary);
+        cJSON_Delete(data_dictionary); //TODO: do this on model cjson, too
     } else {
         cout << "\nERROR: json schema string load failure - \n" << endl << cJSON_GetErrorPtr();
     }
@@ -255,6 +259,12 @@ bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
     while (obj) {
         auto one_object = new IDDxObject(obj);
 //             if (one_object.isValid()) {
+
+        if (one_object->objectType() == "Building") {
+            one_object->debugDump();
+        }
+
+
         insertIDDxObject(one_object);
         /*} else {
             cout << "FAIL: " << one_object.type() << endl;
@@ -318,16 +328,19 @@ IDFxObject::IDFxObject(const string &json_content, const IDDxObjects &schema_obj
 {
     cJSON *valid_object(cJSON_Parse(json_content.c_str()));
     if (valid_object) {
-        cout << cJSON_PrintUnformatted(valid_object);
         setProperties(valid_object);
         _id = value("_id");
         _object_type = value("_type");
         _schema_object = schema_objects.getIDDxObject(_object_type);
+
+//         debugDump();
+// 	_schema_object->debugDump();
+
         if (_schema_object) {
             string extension_type(_schema_object->propertyValue("extension_type"));
             if (extension_type != "") {
                 //TODO: include an extensible object in sample input file to test
-                setExtensions(valid_object, extension_type, schema_objects);
+//                 setExtensions(valid_object, extension_type, schema_objects);
             }
         } else {
             cout << "\nERROR: failed to get _schema_object for: " << _object_type << endl;
@@ -344,6 +357,15 @@ IDFxObject::~IDFxObject()
     delete _properties;
 }
 
+void IDFxObject::debugDump()
+{
+    cout << "iiii " << _object_type << " iiiiiii" << endl;
+    for (auto & one : *_properties) {
+        cout << one.first << " : " << one.second << endl;
+    }
+    cout << "iiiiiiiiiiiiiiiiiiiiiii" << endl;
+}
+
 void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, const IDDxObjects schema_objects)
 {
     if (cjson_object) {
@@ -353,7 +375,7 @@ void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, const
 //TODO: implement this when including sample extension objects
 
             do {
-                _extensions->emplace_back(new IDFxObject(cJSON_Print(json_child), schema_objects));
+//                 _extensions->emplace_back(new IDFxObject(cJSON_Print(json_child), schema_objects));
                 json_child = json_child->next;
             } while (json_child);
         }
@@ -370,18 +392,16 @@ void IDFxObject::setProperties(cJSON *cjson_object)
                 switch (property->type) {
                 case cJSON_Number: { //get numeric types
                     double property_value((property->valuedouble) ? property->valuedouble : property->valueint);
-//                     cout << property_name << " : " << property_value << endl;
                     _properties->emplace(property_name, to_string(property_value));
                     break;
                 }
                 case cJSON_String: { //get alpha types
                     string property_value((property->valuestring) ? property->valuestring : "");
-//                     cout << property_name << " : " << property_value << endl;
                     _properties->emplace(property_name, property_value);
                     break;
                 }
                 default: {
-                    // nothing to do
+                    cout << "ERROR: unhandled data in IDF file" << endl;
                     break;
                 }
                 }
@@ -399,47 +419,59 @@ std::string IDFxObject::value(string field_name)
            : "";
 }
 
-std::string IDFxObject::value(u_int32_t field_index)
-{
-//   cout << _schema_object->idd_field(field_index) <<endl;
-    return value(_schema_object->idd_field(field_index));
-}
-
-// list<std::string> IDFxObject::dataIDF()
+// std::string IDFxObject::value(u_int32_t field_index)
 // {
-//     list<string> return_list;
-//     return_list.emplace(return_list.end(), _object_type);
-//     if (value("extension_type") != "")
-//
-//
-//     for (int i = 0; i < _property_count; i++) {
-//         return_list.emplace(return_list.end(), value(i));
-//     }
-// //    for(const auto &one_object: getExtensions()) {
-// //         for(string one_field: one_object->data()) {
-// //             return_list.emplace(return_list.end(), one_field);
-// //         }
-// //     }
-//     return return_list;
+//     return value(_schema_object->idd_field(field_index));
 // }
+
+string IDFxObject::dataIDF(string data_string)
+{
+    if ((data_string == "") /*&&
+            (value("extension_type") != "")*/) {
+        data_string.append(_object_type);
+    }
+
+    for (auto & field_name : _schema_object->orderedFieldNames()) {
+        data_string.append(",\n" + value(field_name));
+    }
+
+//    for(const auto &one_object: getExtensions()) {
+//         for(string one_field: one_object->data()) {
+//             return_list.emplace(return_list.end(), one_field);
+//         }
+//     }
+
+    return data_string + ";\n\n";
+}
 
 
 /////////////////////////// IDFxObjects  ///////////////////////////////
 
 IDFxObjects::IDFxObjects(const IDDxObjects &schema_objects): //const string &json_content) :
-    _idfx_objects(new vector<IDFxObject * >())
+    _idfx_objects(new vector<IDFxObject * >()),
+    _schema_objects(new IDDxObjects(schema_objects))
 {
 
 }
 
 IDFxObjects::~IDFxObjects()
 {
-
+    delete _idfx_objects;
+    delete _schema_objects;
 }
 
 void IDFxObjects::insertIDFxObject(IDFxObject *idfx_object)
 {
     _idfx_objects->emplace_back(idfx_object);
+}
+
+void IDFxObjects::debugDump()
+{
+    cout << "IIIIIIIIIIIIIIIIII" << endl;
+    for (auto & one : *_idfx_objects) {
+        one->debugDump();
+    }
+    cout << "IIIIIIIIIIIIIII" << endl;
 }
 
 
@@ -449,27 +481,27 @@ bool IDFxObjects::importIDFxModel(const string &json_content)
     cJSON *data_model = cJSON_Parse(json_content.c_str());
     if (data_model->child) {
         cJSON *mdl(data_model->child);
-        //cJSON *mdl(data_model->child);
-        //if (mdl) {
-        //  cJSON *obj(mdl->child);
-        //while (obj) {
-        while (mdl) {
-            auto one_object(new IDFxObject(cJSON_Print(mdl), *_schema_objects));
-            if (one_object) {
-                insertIDFxObject(one_object);
-            } else {
-                cout << "\nFAIL: object creation - " << one_object->objectType() << endl;
-                return false;
+        if (mdl) {
+            cJSON *obj(mdl->child);
+            while (obj) {
+                auto one_object(new IDFxObject(cJSON_Print(obj), *_schema_objects));
+                if (one_object) {
+                    insertIDFxObject(one_object);
+                } else {
+                    cout << "\nFAIL: object creation - " << one_object->objectType() << endl;
+                    return false;
+                }
+                obj = obj->next;
             }
-            mdl = mdl->next;
+            //   debugDump();
+            return true;
         }
-//         }
-
+        cout << "\nERROR: unexpected JSON structure " << endl;
+        return false;
     } else {
         cout << "\nERROR: failure reading input file: " << endl << cJSON_GetErrorPtr();
         return false;
     }
-
 }
 
 
@@ -487,9 +519,10 @@ JSONDataInterface::JSONDataInterface(const string &json_schema) :
     cout << " ###################################### loading schema .... " << endl;
     _schema_objects = new IDDxObjects(json_schema);
     if (_schema_objects != nullptr) {
-        _schema_objects->debugDump();
+        // _schema_objects->debugDump();
         cout << " ###################################### loading model .... " << endl;
         _model_objects = new IDFxObjects(*_schema_objects);
+        //_model_objects->debugDump();
     } else {
         cout << "ERROR: schema not loaded" << endl;
     }
@@ -544,27 +577,12 @@ bool JSONDataInterface::exportIDFfile(string filename)
     //open file buffer
     ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
-        for (auto & one_object : *_model_objects->objectVector()) {
-            //create line of one object
-            string this_object_type = one_object->objectType();
-            string object_string = this_object_type;
-//             cout << endl << one_object->propertyCount();
-            for (int i = 0; i < one_object->propertyCount(); i++) {
-                //  cout << "field string : " << one_object->value(i) << endl << endl;
-                object_string.append("," + one_object->value(one_object->value(i)));
-            }
-            string extension_type = _schema_objects->getIDDxObjectPropertyValue(this_object_type, "extension_type");
-//             if (extension_type != "") { //TODO: get extension object once,and iterate it into local variables for inner loop;
-// 		for (auto& one_extension_object : one_object->extension
-//
-//
-//             }
-            object_string.append(extension_type + ";\n");
-//             cout << object_string;
+        cout << " ###################################### exporting IDF .... " << endl;
+        for (IDFxObject * one_object : *_model_objects->objectVector()) {
+//       for (auto& one_object : *_model_objects->objectVector()) {
             //put line in file buffer
-            idf_file << object_string;
+            idf_file << string(one_object->dataIDF());
         }
-
 //   write file buffer
         idf_file.close();
         return true;
@@ -674,7 +692,6 @@ void JSONDataInterface::importIDFxFile(string filename)
     } else {
         cout << "\nERROR: file not open. " << endl;
     }
-
     //   return validateModel();//always true, at the moment
 }
 
@@ -1004,3 +1021,8 @@ void JSONDataInterface::importIDFFile(string filename)
 //         }
 //     }
 }
+
+
+
+
+
