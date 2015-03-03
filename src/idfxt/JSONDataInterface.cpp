@@ -227,6 +227,7 @@ vector< string > IDDxObject::orderedFieldNames()
 {
     uint32_t field_count = orderedFieldCount();
     vector<string>  return_vector(field_count);
+    return_vector[0] = _object_type;
     for (const auto & field : *_fields) {
         return_vector[field.second->iddIndex()] = field.second->fieldName();
     }
@@ -426,13 +427,15 @@ std::string IDFxObject::value(string field_name)
 
 string IDFxObject::dataIDF(string data_string)
 {
-    if ((data_string == "") /*&&
-            (value("extension_type") != "")*/) {
-        data_string.append(_object_type);
-    }
+//     if ((data_string == "") /*&&
+//             (value("extension_type") != "")*/) {
+//         data_string.append(_object_type + ",\n");
+//     }
 
     for (auto & field_name : _schema_object->orderedFieldNames()) {
-        data_string.append(",\n" + value(field_name));
+        
+        data_string.append((field_name == _object_type) ? _object_type : value(field_name));
+        data_string.append(",\n");
     }
 
 //    for(const auto &one_object: getExtensions()) {
@@ -441,6 +444,8 @@ string IDFxObject::dataIDF(string data_string)
 //         }
 //     }
 
+    data_string.pop_back();//\n
+    data_string.pop_back();//,
     return data_string + ";\n\n";
 }
 
