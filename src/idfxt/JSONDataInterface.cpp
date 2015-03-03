@@ -320,21 +320,24 @@ IDFxObject::IDFxObject(const string &json_content, const IDDxObjects &schema_obj
     _properties(new std::map<std::string, std::string>()),
     _extensions(new std::vector<IDFxObject *>)
 {
+    //c'tor for regular objects
     cJSON *valid_object(cJSON_Parse(json_content.c_str()));
     if (valid_object) {
         setProperties(valid_object);
         _id = value("_id");
         _object_type = value("_type");
         _schema_object = schema_objects.getIDDxObject(_object_type);
-
-//         debugDump();
-// 	_schema_object->debugDump();
-
         if (_schema_object) {
             string extension_type(_schema_object->propertyValue("extension_type"));
             if (extension_type != "") {
-                //TODO: include an extensible object in sample input file to test
-//                 setExtensions(valid_object, extension_type, schema_objects);
+                cJSON *extensions_array = cJSON_GetObjectItem(valid_object, "extensions");
+                if (extensions_array) {
+                    cJSON *extension_object = extensions_array->child;
+                    while (extension_object) {
+                        _extensions->emplace_back(new IDFxObject(cJSON_Print(extension_object), extension_type, schema_objects));
+                        extension_object = extension_object->next;
+                    }
+                }
             }
         } else {
             cout << "\nERROR: failed to get _schema_object for: " << _object_type << endl;
@@ -344,6 +347,21 @@ IDFxObject::IDFxObject(const string &json_content, const IDDxObjects &schema_obj
     }
 }
 
+IDFxObject::IDFxObject(const std::string &json_content, string object_type,  const idfx::IDDxObjects &schema_objects) :
+    _id(""),
+    _object_type(object_type),
+    _schema_object(nullptr),
+    _properties(new std::map<std::string, std::string>()),
+    _extensions(new std::vector<IDFxObject *>)
+{
+    // c'tor for :Extension objects - stored anonymously in extensions array
+    cJSON *valid_object(cJSON_Parse(json_content.c_str()));
+    if (valid_object) {
+        setProperties(valid_object);
+        _schema_object = schema_objects.getIDDxObject(_object_type);
+    }
+
+}
 
 IDFxObject::~IDFxObject()
 {
@@ -353,57 +371,48 @@ IDFxObject::~IDFxObject()
 
 void IDFxObject::debugDump()
 {
-    cout << "iiii " << _object_type << " iiiiiii" << endl;
+    cout << "\niiii " << _object_type << " iiiiiii" << endl;
     for (auto & one : *_properties) {
         cout << one.first << " : " << one.second << endl;
     }
-    cout << "iiiiiiiiiiiiiiiiiiiiiii" << endl;
-}
-
-void IDFxObject::setExtensions(cJSON *cjson_object, string extension_type, const IDDxObjects schema_objects)
-{
-    if (cjson_object) {
-        cJSON *json_child(cjson_object->child);
-        if (json_child) {
-
-//TODO: implement this when including sample extension objects
-
-            do {
-//                 _extensions->emplace_back(new IDFxObject(cJSON_Print(json_child), schema_objects));
-                json_child = json_child->next;
-            } while (json_child);
-        }
+    for (auto & one : *_extensions) {
+        cout << " eeeeeeeeee ";
+        one->debugDump();
     }
+    cout << "iiiiiiiiiiiiiiiiiiiiiii" << endl;
 }
 
 void IDFxObject::setProperties(cJSON *cjson_object)
 {
     if (cjson_object) {
         cJSON *property(cjson_object->child);
-        if (property) {
-            while (property) {
-                string property_name(property->string);
-                switch (property->type) {
-                case cJSON_Number: { //get numeric types
-                    double property_value((property->valuedouble) ? property->valuedouble : property->valueint);
-                    _properties->emplace(property_name, to_string(property_value));
-                    break;
-                }
-                case cJSON_String: { //get alpha types
-                    string property_value((property->valuestring) ? property->valuestring : "");
-                    _properties->emplace(property_name, property_value);
-                    break;
-                }
-                default: {
-                    cout << "ERROR: unhandled data in IDF file" << endl;
-                    break;
-                }
-                }
-                property = property->next;
+        while (property) {
+            string property_name(property->string);
+            switch (property->type) {
+            case cJSON_Number: { //get numeric types
+                double property_value((property->valuedouble) ? property->valuedouble : property->valueint);
+                _properties->emplace(property_name, to_string(property_value));
+                break;
             }
+            case cJSON_String: { //get alpha types
+                string property_value((property->valuestring) ? property->valuestring : "");
+                _properties->emplace(property_name, property_value);
+                break;
+            }
+            case cJSON_Array: { //handle extensions
+                //do nothing now, these are handled a bit later
+                break;
+            }
+            default: {
+                cout << "ERROR: unhandled data in IDF file. cJSON type : " << property->type <<  endl;
+                break;
+            }
+            }
+            property = property->next;
         }
     }
 }
+
 
 std::string IDFxObject::value(string field_name)
 {
@@ -426,7 +435,7 @@ string IDFxObject::dataIDF(string data_string)
 //     }
 
     for (auto & field_name : _schema_object->orderedFieldNames()) {
-        
+
         data_string.append((field_name == _object_type) ? _object_type : value(field_name));
         data_string.append(",\n");
     }
@@ -514,11 +523,11 @@ JSONDataInterface::JSONDataInterface(const string &json_schema) :
     _model_objects(nullptr)
 {
     randomize();  //prepare uuid generation function
-  //  cout << " ###################################### loading schema .... " << endl;
+    //  cout << " ###################################### loading schema .... " << endl;
     _schema_objects = new IDDxObjects(json_schema);
     if (_schema_objects != nullptr) {
         // _schema_objects->debugDump();
-   //     cout << " ###################################### loading model .... " << endl;
+        //     cout << " ###################################### loading model .... " << endl;
         _model_objects = new IDFxObjects(*_schema_objects);
         //_model_objects->debugDump();
     } else {
@@ -576,9 +585,9 @@ bool JSONDataInterface::exportIDFfile(string filename)
     //ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
     ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
-    //    cout << " ###################################### exporting IDF .... " << endl;
-   //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
-       for (auto& one_object : *_model_objects->objectVector()) {
+        //    cout << " ###################################### exporting IDF .... " << endl;
+        //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
+        for (auto & one_object : *_model_objects->objectVector()) {
             idf_file << string(one_object->dataIDF());
         }
 //   write file buffer
@@ -690,6 +699,9 @@ void JSONDataInterface::importIDFxFile(string filename)
     } else {
         cout << "\nERROR: file not open. " << endl;
     }
+    
+//    _model_objects->debugDump();
+    
     //   return validateModel();//always true, at the moment
 }
 
@@ -1019,6 +1031,7 @@ void JSONDataInterface::importIDFFile(string filename)
 //         }
 //     }
 }
+
 
 
 

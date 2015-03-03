@@ -114,6 +114,7 @@ class IDFxObject
 {
 public:
     IDFxObject(const std::string& json_content, const idfx::IDDxObjects& schema_objects);
+    IDFxObject(const std::string &json_content, std::string object_type, const idfx::IDDxObjects &schema_objects);
     ~IDFxObject();
 
 
@@ -146,7 +147,6 @@ private:
     std::vector<IDFxObject*> *_extensions;
 
     void setProperties(cJSON *cjson_object);
-    void setExtensions(cJSON *cjson_object, std::string extension_type, const idfx::IDDxObjects schema_objects);
 };
 
 
