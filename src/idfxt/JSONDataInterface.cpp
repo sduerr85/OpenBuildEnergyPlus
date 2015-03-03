@@ -214,7 +214,6 @@ uint32_t IDDxObject::orderedFieldCount()
 {
     int32_t count = 1; //including index 0 for object_type
     for (const auto & one : *_fields) {
-        cout << "count fld " << one.first << endl;
         if (one.second->iddIndex() != 0)
             count ++;
     }
@@ -261,11 +260,6 @@ bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
         auto one_object = new IDDxObject(obj);
 //             if (one_object.isValid()) {
 
-        if (one_object->objectType() == "Building") {
-            one_object->debugDump();
-        }
-
-
         insertIDDxObject(one_object);
         /*} else {
             cout << "FAIL: " << one_object.type() << endl;
@@ -279,7 +273,6 @@ bool IDDxObjects::loadIDDxObjects(cJSON *schema_root)
 void IDDxObjects::insertIDDxObject(IDDxObject *iddx_object)
 {
     _iddx_object_map->emplace(iddx_object->objectType(), iddx_object);
-//     cout << "emplace : " << iddx_object->objectType() << endl;
 }
 
 string IDDxObjects::getIDDxObjectFieldPropertyValue(string iddx_object_type, string field_name, string property_type) const
@@ -521,11 +514,11 @@ JSONDataInterface::JSONDataInterface(const string &json_schema) :
     _model_objects(nullptr)
 {
     randomize();  //prepare uuid generation function
-    cout << " ###################################### loading schema .... " << endl;
+  //  cout << " ###################################### loading schema .... " << endl;
     _schema_objects = new IDDxObjects(json_schema);
     if (_schema_objects != nullptr) {
         // _schema_objects->debugDump();
-        cout << " ###################################### loading model .... " << endl;
+   //     cout << " ###################################### loading model .... " << endl;
         _model_objects = new IDFxObjects(*_schema_objects);
         //_model_objects->debugDump();
     } else {
@@ -580,12 +573,12 @@ std::map<std::string, IDFxObject * > JSONDataInterface::getModelObjects(std::str
 bool JSONDataInterface::exportIDFfile(string filename)
 {
     //open file buffer
-    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
+    //ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
+    ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
-        cout << " ###################################### exporting IDF .... " << endl;
-        for (IDFxObject * one_object : *_model_objects->objectVector()) {
-//       for (auto& one_object : *_model_objects->objectVector()) {
-            //put line in file buffer
+    //    cout << " ###################################### exporting IDF .... " << endl;
+   //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
+       for (auto& one_object : *_model_objects->objectVector()) {
             idf_file << string(one_object->dataIDF());
         }
 //   write file buffer

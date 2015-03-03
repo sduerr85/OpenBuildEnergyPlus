@@ -408,7 +408,7 @@ EnergyPlusPgm( std::string const & filepath )
 
 	TestAllPaths = true;
 
-	DisplayString( "EnergyPlus Starting" );
+	DisplayString( "####################  NON STANDARD BUILD  ################### \nEnergyPlus Starting" );
 	DisplayString( VerString );
 
 	OutputFileDebug = GetNewUnitNumber();
