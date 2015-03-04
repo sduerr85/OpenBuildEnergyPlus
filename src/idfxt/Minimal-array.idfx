@@ -1,0 +1,111 @@
+{
+	"idfObjects" :	[{
+		"_id": "a1d02e32-c00c-7403-4d7c-82aad8d09879",
+		"_type":	"Version",
+		"Version Identifier":	"8.2"
+	},{
+	    "_id": "37d439e2-42de-5c4e-49c5-83e1d6dcc3fa",
+		"_type":	"Timestep",
+		"Number of Timesteps per Hour":	4
+	},{
+	    "_id": "7f9a87cc-6d3a-b1b6-492b-85006b8ea440",
+		"_type":	"Building",
+		"Label":	"None",
+		"North Axis":	0,
+		"Terrain":	"Suburbs",
+		"Loads Convergence Tolerance Value":	0.040000,
+		"Temperature Convergence Tolerance Value":	0.400000,
+		"Solar Distribution":	"FullInteriorAndExterior",
+		"Maximum Number of Warmup Days":	25,
+		"Minimum Number of Warmup Days":	6
+	},{
+	    "_id": "eaa558d5-785a-c8c8-417e-88e52379d14b",
+		"_type":	"GlobalGeometryRules",
+		"Starting Vertex Position":	"UpperLeftCorner",
+		"Vertex Entry Direction":	"CounterClockWise",
+		"Coordinate System":	"World"
+	},{
+	    "_id": "16e5ffeb-3324-21ad-4e01-84fbefe521ef",
+		"_type":	"Site:Location",
+		"Label":	"DENVER_STAPLETON_CO_USA_WMO_724690",
+		"Latitude":	39.770000,
+		"Longitude":	-104.870000,
+		"Time Zone":	-7,
+		"Elevation":	1611
+	},{
+	    "_id": "f8246de2-8c6f-227c-4b1e-877becb88bd4",
+		"_type":	"SizingPeriod:DesignDay",
+		"Label":	"DENVER_STAPLETON Ann Htg 99.6% Condns DB",
+		"Month":	12,
+		"Day of Month":	21,
+		"Day Type":	"WinterDesignDay",
+		"Maximum Dry-Bulb Temperature":	-20,
+		"Daily Dry-Bulb Temperature Range":	0,
+		"Humidity Condition Type":	"Wetbulb",
+		"Wetbulb or DewPoint at Maximum Dry-Bulb":	-20,
+		"Barometric Pressure":	83411,
+		"Wind Speed":	2.300000,
+		"Wind Direction":	180,
+		"Rain Indicator":	"No",
+		"Snow Indicator":	"No",
+		"Daylight Saving Time Indicator":	"No",
+		"Solar Model Indicator":	"ASHRAEClearSky",
+		"Sky Clearness":	0
+	},{
+	    "_id": "8643df63-eaf5-58ca-45bc-8c482fd3c949",
+		"_type":	"SizingPeriod:DesignDay",
+		"Label":	"DENVER_STAPLETON Ann Clg .4% Condns DB=>MWB",
+		"Month":	7,
+		"Day of Month":	21,
+		"Day Type":	"SummerDesignDay",
+		"Maximum Dry-Bulb Temperature":	34.100000,
+		"Daily Dry-Bulb Temperature Range":	15.200000,
+		"Humidity Condition Type":	"Wetbulb",
+		"Wetbulb or DewPoint at Maximum Dry-Bulb":	15.800000,
+		"Barometric Pressure":	83411,
+		"Wind Speed":	4,
+		"Wind Direction":	120,
+		"Rain Indicator":	"No",
+		"Snow Indicator":	"No",
+		"Daylight Saving Time Indicator":	"No",
+		"Solar Model Indicator":	"ASHRAEClearSky",
+		"Sky Clearness":	1
+	},{
+	    "_id": "553c971b-4a80-b4b7-4cde-81aa141644c6",
+		"_type":	"RunPeriod",
+		"Begin Month":	1,
+		"Begin Day of Month":	1,
+		"End Month":	12,
+		"End Day of Month":	31,
+		"Day of Week for Start Day":	"Tuesday",
+		"Use Weather File Holidays and Special Days":	"Yes",
+		"Use Weather File Daylight Saving Period":	"Yes",
+		"Apply Weekend Holiday Rule":	"No",
+		"Use Weather File Rain Indicators":	"Yes",
+		"Use Weather File Snow Indicators":	"Yes"
+	},{
+	    "_id": "ac61fbc6-cec7-eb4c-412e-828d5074aecc",
+		"_type":	"SimulationControl",
+		"Do Zone Sizing Calculation":	"No",
+		"Do System Sizing Calculation":	"No",
+		"Do Plant Sizing Calculation":	"No",
+		"Run Simulation for Sizing Periods":	"Yes",
+		"Run Simulation for Weather File Run Periods":	"No"
+	},{
+	    "_id": "6fd3a334-7ccd-3346-45ef-85da67562cdc",
+		"_type":	"Output:VariableDictionary",
+		"Key Field":	"Regular"
+	},	{
+	    "_id": "2276e3b0-59be-4ce8-45e8-8961a1584071",
+		"_type":	"Output:Variable",
+		"Key Value":	"*",
+		"Variable Name":	"Site Outdoor Air Drybulb Temperature",
+		"Reporting Frequency":	"Timestep"
+	},{
+	    "_id": "58ca78aa-91a8-d781-4e67-83bebc27b702",
+		"_type":	"Output:Variable",
+		"Key Value":	"*",
+		"Variable Name":	"Site Outdoor Air Wetbulb Temperature",
+		"Reporting Frequency":	"Timestep"
+	}	]
+}

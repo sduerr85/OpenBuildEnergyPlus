@@ -1,0 +1,62 @@
+{
+	"idfObjects" :  [	{
+        "_id": "a111d8e6-c3b1-7d03-4e6b-87cfd89dd746",
+		"_type":	"Version",
+		"Version Identifier":	"8.2"
+	},{
+        "_id": "cc63a8d4-7980-f92b-46b5-87bc308451a1",
+		"_type":	"Building",
+		"Label":	"None",
+		"North Axis":	0,
+		"Terrain":	"Suburbs",
+		"Loads Convergence Tolerance Value":	0.040000,
+		"Temperature Convergence Tolerance Value":	0.400000,
+		"Solar Distribution":	"FullInteriorAndExterior",
+		"Maximum Number of Warmup Days":	25,
+		"Minimum Number of Warmup Days":	6
+	},{
+        "_id": "17ec14e2-1a9e-c4b6-4f13-831ae7ee65f1",  
+		"_type":	"Timestep",
+		"Number of Timesteps per Hour":	4
+	},{
+        "_id": "9a5d90fe-2964-4742-4b9d-8a97586e43a0",
+		"_type":	"SimulationControl",
+		"Do Zone Sizing Calculation":	"No",
+		"Do System Sizing Calculation":	"No",
+		"Do Plant Sizing Calculation":	"No",
+		"Run Simulation for Sizing Periods":	"No",
+		"Run Simulation for Weather File Run Periods":	"Yes"
+	},{
+        "_id": "805197df-1787-2f5a-489a-866e9dfd3d6d",
+		"_type":	"RunPeriod",
+		"Begin Month":	1,
+		"Begin Day of Month":	1,
+		"End Month":	12,
+		"End Day of Month":	31
+	},{
+        "_id": "31803183-cc1d-6f0e-4c62-8602618b77cb",  
+		"_type":	"GlobalGeometryRules",
+		"Starting Vertex Position":	"UpperLeftCorner",
+		"Vertex Entry Direction":	"CounterClockWise",
+		"Coordinate System":	"World"
+	},{
+        "_id": "9b619ab0-298b-d23c-4279-84505c06e2bb",
+		"_type":	"Output:Variable",
+		"Key Value":	"*",
+		"Variable Name":	"Site Outdoor Air Drybulb Temperature",
+		"Reporting Frequency":	"runperiod"
+	},{
+        "_id": "450e76c1-ae95-7ee3-464c-810b30d7f84c",
+		"_type":	"Output:Table:SummaryReports",
+		"extensions":	[{
+				"Report Name":	"AllSummary"
+			}]
+	},{
+        "_id": "7484ff5d-3aab-4546-4abd-856f21b65c4f",
+		"_type":	"ScheduleTypeLimits",
+		"Label":	"On/Off",
+		"Lower Limit Value":	0,
+		"Upper Limit Value":	1,
+		"Numeric Type":	"DISCRETE"
+	} ]
+}
