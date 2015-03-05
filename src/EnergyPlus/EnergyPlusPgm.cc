@@ -408,7 +408,7 @@ EnergyPlusPgm( std::string const & filepath )
 
 	TestAllPaths = true;
 
-	DisplayString( "####################  NON STANDARD BUILD  ################### \nEnergyPlus Starting" );
+	DisplayString( "####################  JSON DATA INTERFACE BUILD  ################### \nEnergyPlus Starting" );
 	DisplayString( VerString );
 
 	OutputFileDebug = GetNewUnitNumber();

@@ -536,21 +536,21 @@ endif()
 # first we will create a static library of EnergyPlus
 # this will be linked statically to create the DLL and also the unit tests
 add_library( EnergyPlusLib STATIC ${SRC} )
-target_link_libraries( EnergyPlusLib objexx sqlite bcvtb epexpat epfmiimport DElight )
+target_link_libraries( EnergyPlusLib objexx sqlite bcvtb epexpat epfmiimport DElight JSONDataAPI cJSON)
 if(UNIX AND NOT APPLE)
-  target_link_libraries( EnergyPlusLib dl )
+  target_link_libraries( EnergyPlusLib dl JSONDataAPI cJSON)
 endif()
 
 add_library( EnergyPlusLib2 STATIC ${SRC_2} )
-target_link_libraries( EnergyPlusLib2 )
+target_link_libraries( EnergyPlusLib2 JSONDataAPI cJSON)
 if(UNIX AND NOT APPLE)
-  target_link_libraries( EnergyPlusLib2 dl )
+  target_link_libraries( EnergyPlusLib2 dl JSONDataAPI cJSON)
 endif()
 
 
 # second we will create the shared library that is actually packaged with EnergyPlus
 add_library( EnergyPlusAPI SHARED  "EnergyPlusPgm.cc" "public/EnergyPlusPgm.hh" )
-target_link_libraries( EnergyPlusAPI EnergyPlusLib EnergyPlusLib2 )
+target_link_libraries( EnergyPlusAPI EnergyPlusLib EnergyPlusLib2 JSONDataAPI)
 
 
 set_target_properties(

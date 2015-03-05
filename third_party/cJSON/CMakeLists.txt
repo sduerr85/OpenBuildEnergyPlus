@@ -4,5 +4,10 @@ set(SRC
   cJSON.c
 )
 
+if (UNIX)
+  ADD_DEFINITIONS("-fPIC")
+endif()
+
+
 add_library( cJSON ${SRC} )
 
