@@ -245,7 +245,8 @@ IDDxObjects::IDDxObjects(const string &json_content):
     if (data_dictionary) {
         if (!loadIDDxObjects(data_dictionary))
             cout << "\nERROR: failed to populate schema object map." << endl;
-        cJSON_Delete(data_dictionary); //TODO: do this on model cjson, too
+        cJSON_Delete(data_dictionary);
+        cout << "SUCCESS: IDDxObjects schema data structure loaded." << endl;
     } else {
         cout << "\nERROR: json schema string load failure - \n" << endl << cJSON_GetErrorPtr();
     }
@@ -331,6 +332,7 @@ IDFxObject::IDFxObject(const string &json_content, const IDDxObjects &schema_obj
         _id = value("_id");
         _object_type = value("_type");
         _schema_object = schema_objects.getIDDxObject(_object_type);
+        //      _schema_object->debugDump();
         if (_schema_object) {
             string extension_type(_schema_object->propertyValue("extension_type"));
             if (extension_type != "") {
@@ -432,21 +434,22 @@ std::string IDFxObject::value(string field_name)
 // }
 
 string IDFxObject::dataIDF()
-{ //nasty hack to generate the comma separated format, the orderly data extraction is in hand.
+{
+    //nasty hack to generate the comma separated format, the orderly data extraction is in hand.
     string data_string("");
     for (const auto & field_name : _schema_object->orderedFieldNames()) {
         data_string.append((field_name == _object_type) ? _object_type : value(field_name));
         data_string.append(",\n");
     }
-    
+
     data_string.pop_back();//\n
     data_string.pop_back();//,
-    
+
     for (const auto & one_extension : *_extensions) {
         data_string.append(",\n");
         data_string.append(one_extension->dataIDFextensions());
     }
-    
+
 
     return data_string + ";\n\n";
 }
@@ -463,10 +466,11 @@ string IDFxObject::dataIDFextensions()
 
 /////////////////////////// IDFxObjects  ///////////////////////////////
 
-IDFxObjects::IDFxObjects(const IDDxObjects &schema_objects): //const string &json_content) :
+IDFxObjects::IDFxObjects(const IDDxObjects &schema_objects):
     _idfx_objects(new vector<IDFxObject * >()),
     _schema_objects(new IDDxObjects(schema_objects))
 {
+
 
 }
 
@@ -493,29 +497,35 @@ void IDFxObjects::debugDump()
 
 bool IDFxObjects::importIDFxModel(const string &json_content)
 {
-    //TODO: maybe move this into the IDFxObjects
     cJSON *data_model = cJSON_Parse(json_content.c_str());
-    if (data_model->child) {
-        cJSON *mdl(data_model->child);
-        if (mdl) {
-            cJSON *obj(mdl->child);
-            while (obj) {
-                auto one_object(new IDFxObject(cJSON_Print(obj), *_schema_objects));
-                if (one_object) {
-                    insertIDFxObject(one_object);
-                } else {
-                    cout << "\nFAIL: object creation - " << one_object->objectType() << endl;
-                    return false;
+    if (data_model) {
+        if (data_model->child) {
+            cJSON *mdl(data_model->child);
+            if (mdl) {
+                cJSON *obj(mdl->child);
+                while (obj) {
+                    auto one_object(new IDFxObject(cJSON_Print(obj), *_schema_objects));
+                    if (one_object) {
+                        insertIDFxObject(one_object);
+                    } else {
+                        cout << "\nFAIL: object creation - " << one_object->objectType() << endl;
+                        return false;
+                    }
+                    obj = obj->next;
                 }
-                obj = obj->next;
+                //   debugDump();
+                cJSON_Delete(data_model);
+                cout << "SUCCESS: IDFxObjects object data structure loaded from json." << endl;
+                return true;
             }
-            //   debugDump();
-            return true;
+            cout << "\nERROR: unexpected JSON structure " << endl;
+            return false;
+        } else {
+            cout << "\nERROR: child object not found in json: \n\n"  << cJSON_GetErrorPtr() << endl;
+            return false;
         }
-        cout << "\nERROR: unexpected JSON structure " << endl;
-        return false;
     } else {
-        cout << "\nERROR: failure reading input file: " << endl << cJSON_GetErrorPtr();
+        cout << "\nERROR: failure  parsing json: \n\n"  << cJSON_GetErrorPtr() << endl;
         return false;
     }
 }
@@ -535,10 +545,9 @@ JSONDataInterface::JSONDataInterface(const string &json_schema) :
     //  cout << " ###################################### loading schema .... " << endl;
     _schema_objects = new IDDxObjects(json_schema);
     if (_schema_objects != nullptr) {
-        // _schema_objects->debugDump();
+//          _schema_objects->debugDump();
         //     cout << " ###################################### loading model .... " << endl;
         _model_objects = new IDFxObjects(*_schema_objects);
-        //_model_objects->debugDump();
     } else {
         cout << "ERROR: schema not loaded" << endl;
     }
@@ -591,13 +600,13 @@ std::map<std::string, IDFxObject * > JSONDataInterface::getModelObjects(std::str
 bool JSONDataInterface::exportIDFfile(string filename)
 {
     //open file buffer
-//    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
-   ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
+    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
+//   ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
-        //    cout << " ###################################### exporting IDF .... " << endl;
-        //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
-        for (auto & one_object : *_model_objects->objectVector()) {
-            idf_file << string(one_object->dataIDF());
+        //          cout << " ###################################### exporting IDF .... " << endl;
+        for (IDFxObject * one_object : *_model_objects->objectVector()) {
+            //      for (auto & one_object : *_model_objects->objectVector()) {
+            idf_file << one_object->dataIDF();
         }
 //   write file buffer
         idf_file.close();
@@ -706,12 +715,12 @@ void JSONDataInterface::importIDFxFile(string filename)
             cout << "\nERROR: JSON data not read from file. " << endl;
         }
     } else {
-        cout << "\nERROR: file not open. " << endl;
+        cout << "\nERROR: input file not open -  " << filename << endl;
     }
-
-//    _model_objects->debugDump();
+    // _model_objects->debugDump();
 
     //   return validateModel();//always true, at the moment
+
 }
 
 

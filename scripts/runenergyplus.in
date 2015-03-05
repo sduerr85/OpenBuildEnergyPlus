@@ -89,7 +89,7 @@ cd "${INP_P}"
 
 # Allow the IDF or IMF file to include its file extension (e.g., *.idf, *.imf)
 case $1 in
-  *.idf | *.imf)
+  *.idfx)
     LONG_F="${1##*/}"
     ARG1="${LONG_F%.*}"
     ;;
@@ -143,12 +143,12 @@ LINK_NAMES="in.idf in.epw in.imf Energy+.idd BasementGHT.idd eplusout.inp eplusm
 
 # ==========================================================
 function Usage() {
-  echo
+  echo "################## JSON DATA INTERFACE VERSION #########################"
   echo "Usage:  runenergyplus InputFileName [WeatherFileName]"
   echo "   or:  runenergyplus --help (or -h)"
   echo "   or:  runenergyplus --weather (or -w)"
   echo
-  echo "Runs EnergyPlus with an idf or imf input file and creates a"
+  echo "Runs EnergyPlus with an idfx input file and creates a"
   echo "full set of output files (e.g., creates *.csv files, etc.)"
   echo
   echo "NOTE: All output will be placed in the output subdirectory (i.e., ./output)"
@@ -366,9 +366,9 @@ if [ -f "${INP_P}/${ARG1}.imf" ]; then
     Usage
     ExitWithError
   fi
-elif [ -f "${INP_P}/${ARG1}.idf" ]; then
+elif [ -f "${INP_P}/${ARG1}.idfx" ]; then
   #  link to the idf
-  ln -s "${INP_P}/${ARG1}.idf" in.idf
+  ln -s "${INP_P}/${ARG1}.idfx" in.idf
   echo
   echo "$HEADER"
   echo "   Input file  : ${ARG1}.idf"
@@ -422,56 +422,56 @@ fi
 # ==========================================================
 # Run expand objects, basement and slab if necessary
 
-if [ -f in.idf ]; then
-  if $auto_eplus_dir; then
-    "$ENERGYPLUS_DIR/bin/$PRG_X"
-  else
-    "$ENERGYPLUS_DIR/$PRG_X"
-  fi
-  if [ -f expanded.idf ]; then
-    mv expanded.idf "${OUT_P}/${ARG1}.expidf"
-    rm in.idf
-    ln -s "${OUT_P}/${ARG1}.expidf" in.idf
-    if [ -f BasementGHTIn.idf ]; then
-      if $auto_eplus_dir; then
-        ln -s "$ENERGYPLUS_DIR/bin/BasementGHT.idd"
-        "$ENERGYPLUS_DIR/bin/$PRG_B"
-      else
-        ln -s "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/BasementGHT.idd"
-        "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/$PRG_B"
-      fi
-      cat EPObjects.TXT >> in.idf
-      mv RunINPUT.TXT "${OUT_P}/${ARG1}.RunINPUT.TXT"
-      mv RunDEBUGOUT.TXT "${OUT_P}/${ARG1}.RunDEBUGOUT.TXT"
-      mv EPObjects.TXT "${OUT_P}/${ARG1}.EPObjects.TXT"
-      mv BasementGHTIn.idf "${OUT_P}/${ARG1}.BasementGHTIn.idf"
-      mv MonthlyResults.csv "${OUT_P}/${ARG1}.MonthlyResults.csv"
-      rm BasementGHT.idd
-    fi
-    if [ -f GHTIn.idf ]; then
-      if $auto_eplus_dir; then
-        ln -s "$ENERGYPLUS_DIR/bin/SlabGHT.idd"
-        "$ENERGYPLUS_DIR/bin/$PRG_S"
-      else
-        ln -s "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/SlabGHT.idd"
-        "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/$PRG_S"
-      fi
-      cat SLABSurfaceTemps.TXT >> in.idf
-      mv SLABINP.TXT "${OUT_P}/${ARG1}.SLABINP.TXT"
-      mv GHTIn.idf "${OUT_P}/${ARG1}.GHTIn.idf"
-      mv SLABSurfaceTemps.TXT "${OUT_P}/${ARG1}.SLABSurfaceTemps.TXT"
-      mv "SLABSplit Surface Temps.TXT" "${OUT_P}/${ARG1}.SLABSplit Surface Temps.TXT"
-      rm SlabGHT.idd
-    fi
-    echo
-    echo "$HEADER"
-    echo "   Input file  : ${ARG1}.expidf"
-  else 
-    echo
-    echo "$HEADER"
-    echo "   Input file  : ${ARG1}.idf"
-  fi
-fi
+# if [ -f in.idf ]; then
+#   if $auto_eplus_dir; then
+#     "$ENERGYPLUS_DIR/bin/$PRG_X"
+#   else
+#     "$ENERGYPLUS_DIR/$PRG_X"
+#   fi
+#   if [ -f expanded.idf ]; then
+#     mv expanded.idf "${OUT_P}/${ARG1}.expidf"
+#     rm in.idf
+#     ln -s "${OUT_P}/${ARG1}.expidf" in.idf
+#     if [ -f BasementGHTIn.idf ]; then
+#       if $auto_eplus_dir; then
+#         ln -s "$ENERGYPLUS_DIR/bin/BasementGHT.idd"
+#         "$ENERGYPLUS_DIR/bin/$PRG_B"
+#       else
+#         ln -s "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/BasementGHT.idd"
+#         "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/$PRG_B"
+#       fi
+#       cat EPObjects.TXT >> in.idf
+#       mv RunINPUT.TXT "${OUT_P}/${ARG1}.RunINPUT.TXT"
+#       mv RunDEBUGOUT.TXT "${OUT_P}/${ARG1}.RunDEBUGOUT.TXT"
+#       mv EPObjects.TXT "${OUT_P}/${ARG1}.EPObjects.TXT"
+#       mv BasementGHTIn.idf "${OUT_P}/${ARG1}.BasementGHTIn.idf"
+#       mv MonthlyResults.csv "${OUT_P}/${ARG1}.MonthlyResults.csv"
+#       rm BasementGHT.idd
+#     fi
+#     if [ -f GHTIn.idf ]; then
+#       if $auto_eplus_dir; then
+#         ln -s "$ENERGYPLUS_DIR/bin/SlabGHT.idd"
+#         "$ENERGYPLUS_DIR/bin/$PRG_S"
+#       else
+#         ln -s "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/SlabGHT.idd"
+#         "$ENERGYPLUS_DIR/PreProcess/GrndTempCalc/$PRG_S"
+#       fi
+#       cat SLABSurfaceTemps.TXT >> in.idf
+#       mv SLABINP.TXT "${OUT_P}/${ARG1}.SLABINP.TXT"
+#       mv GHTIn.idf "${OUT_P}/${ARG1}.GHTIn.idf"
+#       mv SLABSurfaceTemps.TXT "${OUT_P}/${ARG1}.SLABSurfaceTemps.TXT"
+#       mv "SLABSplit Surface Temps.TXT" "${OUT_P}/${ARG1}.SLABSplit Surface Temps.TXT"
+#       rm SlabGHT.idd
+#     fi
+#     echo
+#     echo "$HEADER"
+#     echo "   Input file  : ${ARG1}.expidf"
+#   else 
+#     echo
+#     echo "$HEADER"
+#     echo "   Input file  : ${ARG1}.idf"
+#   fi
+# fi
 
 if $auto_eplus_dir; then
   ln -s "$ENERGYPLUS_DIR/bin/Energy+.idd"

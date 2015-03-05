@@ -346,13 +346,16 @@ ProcessInput()
     gio::write(EchoInputFile, fmtLD) << " Processing Input Data File (in.idf) -- Start";
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    //intercept, and transform the json in.idf to a plain old comma separated text in.idf
+    //to be read in and processed as usual
     //eventually, read in and write direct to buffer. but, now de-convert file and read in normally
 
     std::string json_schema_str = getSchema();
     idfx::JSONDataInterface *IDFxData = new JSONDataInterface(json_schema_str);
-    IDFxData->importIDFxFile("in.idfx");
-    IDFxData->exportIDFfile("in.idf");
-    delete IDFxData;
+    IDFxData->importIDFxFile("in.idf");
+    IDFxData->exportIDFfile("in");
+    //delete IDFxData; //TODO: clean up later
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
