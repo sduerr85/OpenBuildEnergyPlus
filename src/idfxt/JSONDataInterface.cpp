@@ -591,8 +591,8 @@ std::map<std::string, IDFxObject * > JSONDataInterface::getModelObjects(std::str
 bool JSONDataInterface::exportIDFfile(string filename)
 {
     //open file buffer
-    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
-//   ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
+//    ofstream idf_file(filename + ".idf", ofstream::trunc | ofstream::out);
+   ofstream idf_file("in.idf", ofstream::trunc | ofstream::out);
     if (idf_file.is_open()) {
         //    cout << " ###################################### exporting IDF .... " << endl;
         //     for (IDFxObject * one_object : *_model_objects->objectVector()) {
