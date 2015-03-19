@@ -134,7 +134,7 @@ public:
     }
 
     std::string value(std::string field_name);
-    std::string value(u_int32_t field_index);
+    std::string value(int field_index);
 
 
     void debugDump();

@@ -9,7 +9,7 @@
 
 
 #include "JSONDataInterface.h"
-#include "idd-full.h"
+
 
 
 using namespace std;
@@ -29,7 +29,7 @@ const std::string HELP_TEXT =
     "  idfxt -j example.idfj \n\t\tValidate IDFj file.\n\n"
     "Note:\n  'idfxt' is primarily a tool for updating legacy IDF files.\n"
     "  Application developers should use the standard C++ library,\n  that idfxt is built upon, for building their own applications.\n"
-    "  Information can be found at : <url here>\n\n" ;
+    "  Information can be found at : github.com/NREL/EnergyPlus\n\n" ;
 
 JSONDataInterface *Data;
 
@@ -49,8 +49,17 @@ std::string replaceString(std::string subject, const std::string &search,
 // translator functions
 void initData()
 {
-    string json_schema_str = getSchema();
-    Data = new JSONDataInterface(json_schema_str);
+	ifstream idfj("idd-8_2.json", std::ifstream::in);
+	if (idfj) {
+		std::ostringstream contents;
+		contents << idfj.rdbuf();
+		idfj.close();
+		string json_schema_str = contents.str();
+	    Data = new JSONDataInterface(json_schema_str);
+	}
+	else {
+		cout << "ERROR: schema file not opened. " << endl;
+	}
 }
 
 int actionJSON(string in_file)
