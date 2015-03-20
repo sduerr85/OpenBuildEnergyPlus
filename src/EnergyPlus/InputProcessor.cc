@@ -22,8 +22,10 @@
 #include <DisplayRoutines.hh>
 #include <SortAndStringUtilities.hh>
 
+// idfx
+#include <iostream>
+#include <fstream>
 #include "../idfxt/JSONDataInterface.h"
-#include "../idfxt/idd-full.h"
 using namespace idfx;
 
 
@@ -351,10 +353,21 @@ ProcessInput()
     //to be read in and processed as usual
     //eventually, read in and write direct to buffer. but, now de-convert file and read in normally
 
-    std::string json_schema_str = getSchema();
-    idfx::JSONDataInterface *IDFxData = new JSONDataInterface(json_schema_str);
-    IDFxData->importIDFxFile("in.idf");
-    IDFxData->exportIDFfile("in");
+	std::string json_schema_str("");
+	std::ifstream iddj("idd-8_2.json", std::ifstream::in);
+	if (iddj) {
+		std::ostringstream contents;
+		contents << iddj.rdbuf();
+		iddj.close();
+		json_schema_str = contents.str();
+		idfx::JSONDataInterface *IDFxData = new JSONDataInterface(json_schema_str);
+		IDFxData->importIDFxFile("in.idf");
+		IDFxData->exportIDFfile("in");
+	}
+	else {
+		std::cout << "ERROR: schema file not opened. " << std::endl;
+	}
+
     //delete IDFxData; //TODO: clean up later
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////

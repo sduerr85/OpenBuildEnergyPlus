@@ -49,11 +49,11 @@ std::string replaceString(std::string subject, const std::string &search,
 // translator functions
 void initData()
 {
-	ifstream idfj("idd-8_2.json", std::ifstream::in);
-	if (idfj) {
+	ifstream iddj("idd-8_2.json", std::ifstream::in);
+	if (iddj) {
 		std::ostringstream contents;
-		contents << idfj.rdbuf();
-		idfj.close();
+		contents << iddj.rdbuf();
+		iddj.close();
 		string json_schema_str = contents.str();
 	    Data = new JSONDataInterface(json_schema_str);
 	}
