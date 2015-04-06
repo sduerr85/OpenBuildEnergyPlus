@@ -4128,7 +4128,7 @@ namespace PlantManager {
 							this_component.HowLoadServed = HowMet_PassiveCap;
 						} else if ( SELECT_CASE_var == TypeOf_Generator_MicroTurbine ) { //          = 48  !newer FSEC turbine
 							this_component.FlowCtrl = ControlType_Active;
-							this_component.FlowPriority = LoopFlowStatus_NeedyAndTurnsLoopOn;
+							this_component.FlowPriority = LoopFlowStatus_TakesWhatGets;
 							this_component.HowLoadServed = HowMet_ByNominalCap;
 						} else if ( SELECT_CASE_var == TypeOf_Generator_ICEngine ) { //             = 49
 							this_component.FlowCtrl = ControlType_Active;
