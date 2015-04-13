@@ -1,9 +1,7 @@
 // C++ Headers
-#include <cmath>
 
 // ObjexxFCL Headers
 #include <ObjexxFCL/Array.functions.hh>
-#include <ObjexxFCL/Fmath.hh>
 
 // EnergyPlus Headers
 #include <GroundHeatExchangers.hh>
@@ -301,7 +299,7 @@ namespace GroundHeatExchangers {
 		int i;
 		int j;
 		Real64 disRing;
-		int I0;
+		int I0( 33 );
 		int J0;
 		Real64 doubleIntegralVal;
 		Real64 midFieldVal;
@@ -370,7 +368,7 @@ namespace GroundHeatExchangers {
 							midFieldVal = 0.0;
 
 							// Calculate the distance between ring centers
-							disRing = distToCenter( m, n, m1, n1 );
+							disRing = std::sqrt( pow_2( X0( n ) - X0( n1 ) ) + pow_2( Y0( m ) - Y0( m1 ) ) );
 
 							// Save mm1 and nn1
 							mm1 = std::abs( m - m1 );
@@ -379,10 +377,8 @@ namespace GroundHeatExchangers {
 							// If we're calculating a ring's temperature response to itself as a ring source,
 							// then we nee some extra effort in calculating the double integral
 							if ( m1 == m && n1 == n) {
-								I0 = 33;
 								J0 = 1089;
 							} else {
-								I0 = 33;
 								J0 = 561;
 							}
 
@@ -398,18 +394,18 @@ namespace GroundHeatExchangers {
 								}
 
 								// due to symmetry, the temperature response of ring(n1, m1) should be 0.25, 0.5, or 1 times its calculated value
-								if ( ! isEven( numTrenches ) && ! isEven( numCoils ) && m1 == numRC && n1 == numLC && numTrenches > 1.5 ) {
+								if ( ! ( numTrenches % 2 == 0 ) && ! ( numCoils % 2 == 0 ) && m1 == numRC && n1 == numLC && numTrenches > 1.5 ) {
 									gFuncin = 0.25 * doubleIntegralVal;
-								} else if ( ! isEven( numTrenches ) && m1 == numRC && numTrenches > 1.5 ) {
+								} else if ( ! ( numTrenches % 2 == 0 ) && m1 == numRC && numTrenches > 1.5 ) {
 									gFuncin = 0.5 * doubleIntegralVal;
-								} else if ( ! isEven( numCoils ) && n1 == numLC ) {
+								} else if ( ! ( numCoils % 2 == 0) && n1 == numLC ) {
 									gFuncin = 0.5  * doubleIntegralVal;
 								} else {
 									gFuncin = doubleIntegralVal;
 								}
 
 							// if the ring(n1, m1) is in the far-field or the ring(n,m)
-							} else if ( disRing > (10 + coilDiameter ) ) {
+							} else if ( disRing > (10.0 + coilDiameter ) ) {
 								gFuncin = 0;
 
 							// else the ring(n1, m1) is in the middle-field of the ring(n,m)
@@ -424,11 +420,11 @@ namespace GroundHeatExchangers {
 								}
 
 								// due to symmetry, the temperature response of ring(n1, m1) should be 0.25, 0.5, or 1 times its calculated value
-								if ( ! isEven( numTrenches ) && ! isEven( numCoils ) && m1 == numRC && n1 == numLC && numTrenches > 1.5 ) {
+								if ( ! ( numTrenches % 2 == 0 ) && ! ( numCoils % 2 == 0 ) && m1 == numRC && n1 == numLC && numTrenches > 1.5 ) {
 									gFuncin = 0.25 * midFieldVal;
-								} else if ( ! isEven( numTrenches ) && m1 == numRC && numTrenches > 1.5 ) {
+								} else if ( ! ( numTrenches % 2 == 0 ) && m1 == numRC && numTrenches > 1.5 ) {
 									gFuncin = 0.5 * midFieldVal;
-								} else if ( ! isEven( numCoils ) && n1 == numLC ) {
+								} else if ( ! ( numCoils % 2 == 0 ) && n1 == numLC ) {
 									gFuncin = 0.5  * midFieldVal;
 								} else {
 									gFuncin = midFieldVal;
@@ -528,8 +524,10 @@ namespace GroundHeatExchangers {
 		Real64 distance;
 
 		sqrtAlphaT = std::sqrt( diffusivityGround * t );
+		
+		// Calculates the center-to-center distance between rings
+		distance = std::sqrt( pow_2( X0( n ) - X0( n1 ) ) + pow_2( Y0( m ) - Y0( m1 ) ) );
 
-		distance = distToCenter( m, n, m1, n1 );
 		sqrtDistDepth = std::sqrt( pow_2( distance ) + 4 * pow_2( coilDepth ) );
 
 		errFunc1 = std::erfc( 0.5 * distance / sqrtAlphaT );
@@ -570,17 +568,27 @@ namespace GroundHeatExchangers {
 		Real64 yOut;
 		Real64 zOut;
 		Real64 pipeOuterRadius;
+		Real64 cosTheta;
+		Real64 sinTheta;
+		Real64 cosEta;
+		Real64 sinEta;
 
 		pipeOuterRadius = pipeOutDia / 2.0;
 
-		x = X0( n ) + std::cos( theta ) * ( coilDiameter / 2.0 );
-		y = Y0( m ) + std::sin( theta ) * ( coilDiameter / 2.0 );
+		// calc these here to avoid redundant cos/sin calls
+		cosTheta = std::cos( theta );
+		sinTheta = std::sin( theta );
+		cosEta = std::cos( eta );
+		sinEta = std::sin( eta );
 
-		xIn = X0( n1 ) + std::cos( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
-		yIn = Y0( m1 ) + std::sin( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
+		x = X0( n ) + cosTheta * ( coilDiameter / 2.0 );
+		y = Y0( m ) + sinTheta * ( coilDiameter / 2.0 );
 
-		xOut = X0( n1 ) + std::cos( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
-		yOut = Y0( m1 ) + std::sin( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
+		xIn = X0( n1 ) + cosEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+		yIn = Y0( m1 ) + sinEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+
+		xOut = X0( n1 ) + cosEta * ( coilDiameter / 2.0 + pipeOuterRadius );
+		yOut = Y0( m1 ) + sinEta * ( coilDiameter / 2.0 + pipeOuterRadius );
 
 		if ( ! verticalConfig ) {
 
@@ -589,10 +597,10 @@ namespace GroundHeatExchangers {
 
 		} else {
 
-			z = Z0 + std::sin( theta ) * ( coilDiameter / 2.0 );
+			z = Z0 + sinTheta * ( coilDiameter / 2.0 );
 
-			zIn = Z0 + std::sin( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
-			zOut = Z0 + std::sin( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
+			zIn = Z0 + sinEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+			zOut = Z0 + sinEta * ( coilDiameter / 2.0 + pipeOuterRadius );
 
 			return 0.5 * std::sqrt( pow_2( x - xIn ) + pow_2( Y0( m1 ) - Y0( m ) ) + pow_2( z - zIn ) )
 				+ 0.5 * std::sqrt( pow_2( x - xOut ) + pow_2( Y0( m1 ) - Y0( m ) ) + pow_2( z - zOut ) );
@@ -631,69 +639,34 @@ namespace GroundHeatExchangers {
 		Real64 yOut;
 		Real64 zOut;
 		Real64 pipeOuterRadius;
+		Real64 cosTheta;
+		Real64 sinTheta;
+		Real64 cosEta;
+		Real64 sinEta;
 
 		pipeOuterRadius = pipeOutDia / 2.0;
 
-		x = X0( n ) + std::cos( theta ) * ( coilDiameter / 2.0 );
-		y = Y0( m ) + std::sin( theta ) * ( coilDiameter / 2.0 );
-		z = Z0 + std::sin( theta ) * ( coilDiameter / 2.0 ) + 2 * coilDepth;
+		// calc these here to avoid redundant cos/sin calls
+		cosTheta = std::cos( theta );
+		sinTheta = std::sin( theta );
+		cosEta = std::cos( eta );
+		sinEta = std::sin( eta );
 
-		xIn = X0( n1 ) + std::cos( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
-		yIn = Y0( m1 ) + std::sin( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
-		zIn = Z0 + std::sin( eta ) * ( coilDiameter / 2.0 - pipeOuterRadius );
+		x = X0( n ) + cosTheta * ( coilDiameter / 2.0 );
+		y = Y0( m ) + sinTheta * ( coilDiameter / 2.0 );
+		z = Z0 + sinTheta * ( coilDiameter / 2.0 ) + 2 * coilDepth;
 
-		xOut = X0( n1 ) + std::cos( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
-		yOut = Y0( m1 ) + std::sin( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
-		zOut = Z0 + std::sin( eta ) * ( coilDiameter / 2.0 + pipeOuterRadius );
+		xIn = X0( n1 ) + cosEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+		yIn = Y0( m1 ) + sinEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+		zIn = Z0 + sinEta * ( coilDiameter / 2.0 - pipeOuterRadius );
+
+		xOut = X0( n1 ) + cosEta * ( coilDiameter / 2.0 + pipeOuterRadius );
+		yOut = Y0( m1 ) + sinEta * ( coilDiameter / 2.0 + pipeOuterRadius );
+		zOut = Z0 + sinEta * ( coilDiameter / 2.0 + pipeOuterRadius );
 
 		return 0.5 * std::sqrt( pow_2( x - xIn ) + pow_2( Y0( m1 ) - Y0( m ) ) + pow_2( z - zIn ) )
 				+ 0.5 * std::sqrt( pow_2( x - xOut ) + pow_2( Y0( m1 ) - Y0( m ) ) + pow_2( z - zOut ) );
 
-	}
-
-	//******************************************************************************
-
-	Real64
-	GLHESlinky::distToCenter(
-		int const m,
-		int const n,
-		int const m1,
-		int const n1
-	)
-	{
-		// SUBROUTINE INFORMATION:
-		//       AUTHOR:          Matt Mitchell
-		//       DATE WRITTEN:    February, 2015
-		//       MODIFIED         na
-		//       RE-ENGINEERED    na
-
-		// PURPOSE OF THIS SUBROUTINE:
-		// Calculates the center-to-center distance between rings
-
-		return std::sqrt( pow_2( X0( n ) - X0( n1 ) ) + pow_2( Y0( m ) - Y0( m1 ) ) );
-	}
-
-	//******************************************************************************
-
-	bool
-	GLHESlinky::isEven(
-		int const val
-	)
-	{
-		// SUBROUTINE INFORMATION:
-		//       AUTHOR:          Matt Mitchell
-		//       DATE WRITTEN:    February, 2015
-		//       MODIFIED         na
-		//       RE-ENGINEERED    na
-
-		// PURPOSE OF THIS SUBROUTINE:
-		// Determines if an integer is even
-
-		if ( val % 2 == 0 ) {
-			return true;
-		} else {
-			return false;
-		}
 	}
 
 	//******************************************************************************
@@ -706,7 +679,7 @@ namespace GroundHeatExchangers {
 		int const n1,
 		Real64 const t,
 		Real64 const eta,
-		Real64 const J0
+		int const J0
 	)
 	{
 		// SUBROUTINE INFORMATION:
@@ -729,7 +702,10 @@ namespace GroundHeatExchangers {
 		Real64 theta2( 2 * Pi );
 		Real64 h;
 		int j;
-		Array1D< Real64 > f( J0, 0.0 );
+
+		assert( J0 <= 1089 );
+
+		static Array1D< Real64 > f( 1089, 0.0 );
 
 		h = ( theta2 - theta1 ) / ( J0 - 1 );
 
@@ -742,7 +718,7 @@ namespace GroundHeatExchangers {
 
 			if ( j == 1 || j == J0 ) {
 				f( j ) = f( j );
-			} else if ( isEven( j ) ) {
+			} else if ( ( j % 2 == 0 ) ) {
 				f( j ) = 4 * f( j );
 			} else {
 				f( j ) = 2 * f( j );
@@ -786,7 +762,10 @@ namespace GroundHeatExchangers {
 		Real64 eta2( 2 * Pi );
 		Real64 h;
 		int i;
-		Array1D< Real64 > g( I0, 0.0 );
+
+		assert( I0 <= 33 );
+
+		static Array1D< Real64 > g( 33, 0.0 );
 
 		h = ( eta2 - eta1 ) / ( I0 - 1 );
 
@@ -798,7 +777,7 @@ namespace GroundHeatExchangers {
 
 			if ( i == 1 || i == I0 ) {
 				g( i ) = g( i );
-			} else if ( isEven( i ) ) {
+			} else if ( ( i % 2 == 0 ) ) {
 				g( i ) = 4 * g( i );
 			} else {
 				g( i ) = 2 * g( i );

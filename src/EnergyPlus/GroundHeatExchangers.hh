@@ -277,12 +277,7 @@ namespace GroundHeatExchangers {
 			int const n1,
 			Real64 const t,
 			Real64 const eta,
-			Real64 const J0
-		);
-
-		bool
-		isEven(
-			int const val
+			int const J0
 		);
 
 		Real64
@@ -303,14 +298,6 @@ namespace GroundHeatExchangers {
 			int const n1,
 			Real64 const eta,
 			Real64 const theta
-		);
-
-		Real64
-		distToCenter(
-			int const m,
-			int const n,
-			int const m1,
-			int const n1
 		);
 
 		Real64
