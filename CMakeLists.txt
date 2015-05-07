@@ -135,6 +135,10 @@ configure_file( idd/Energy+.idd.in "${CMAKE_BINARY_DIR}/Energy+.idd" )
 configure_file( idd/BasementGHT.idd "${CMAKE_BINARY_DIR}/BasementGHT.idd" )
 configure_file( idd/SlabGHT.idd "${CMAKE_BINARY_DIR}/SlabGHT.idd" )
 
+configure_file( idd/Energy+.idd.in "${CMAKE_BINARY_DIR}/Products/Energy+.idd" )
+configure_file( idd/BasementGHT.idd "${CMAKE_BINARY_DIR}/Products/BasementGHT.idd" )
+configure_file( idd/SlabGHT.idd "${CMAKE_BINARY_DIR}/Products/SlabGHT.idd" )
+
 if( BUILD_PACKAGE )
   set(CPACK_INSTALL_CMAKE_PROJECTS
     "${CMAKE_BINARY_DIR};EnergyPlus;ALL;/"
@@ -164,7 +168,7 @@ if (BUILD_VALIDATION_REPORTS)
 include(ExternalProject)
   ExternalProject_Add(ValidationReports
     DEPENDS EnergyPlus ReadVarsESO Basement Slab
-    GIT_REPOSITORY git://github.com/lefticus/EnergyPlusValidationReports
+    GIT_REPOSITORY git://github.com/NREL/EnergyPlusValidationReports
     GIT_TAG master
     CMAKE_CACHE_ARGS
       -DENERGYPLUS_PATH:PATH=${CMAKE_BINARY_DIR}
