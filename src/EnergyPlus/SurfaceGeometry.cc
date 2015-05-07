@@ -1715,6 +1715,10 @@ namespace SurfaceGeometry {
 		//**********************************************************************************
 		//   Set up Zone Surface Pointers
 		for ( SurfNum = 1; SurfNum <= MovedSurfs; ++SurfNum ) { //TotSurfaces
+			// Skip non-zone surfaces
+			if ( Surface( SurfNum ).Zone == 0 ) 
+				continue;
+
 			ZoneData & z = Zone( Surface( SurfNum ).Zone );
 			int sclass = Surface( SurfNum ).Class;
 			if ( z.SurfaceFirst == 0 )
@@ -1730,6 +1734,10 @@ namespace SurfaceGeometry {
 		}
 
 		for ( SurfNum = MovedSurfs; SurfNum >= 1; --SurfNum ) { //TotSurfaces
+			// Skip non-zone surfaces
+			if ( Surface( SurfNum ).Zone == 0 )
+				continue;
+
 			ZoneData & z = Zone( Surface( SurfNum ).Zone );
 			int sclass = Surface( SurfNum ).Class;
 			if ( z.SurfaceLast == 0 )
