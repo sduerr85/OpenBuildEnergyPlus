@@ -1,5 +1,5 @@
 // ObjexxFCL Headers
-#include <ObjexxFCL/FArray.functions.hh>
+#include <ObjexxFCL/Array.functions.hh>
 #include <ObjexxFCL/Fmath.hh>
 
 // EnergyPlus Headers
@@ -62,12 +62,12 @@ namespace MixerComponent {
 	int LoopInletNode( 0 );
 	int LoopOutletNode( 0 );
 	bool GetInputFlag( true ); // Flag set to make sure you get input once
-	FArray1D_bool CheckEquipName;
+	Array1D_bool CheckEquipName;
 
 	// SUBROUTINE SPECIFICATIONS FOR MODULE Mixers
 
 	// Object Data
-	FArray1D< MixerConditions > MixerCond;
+	Array1D< MixerConditions > MixerCond;
 
 	// MODULE SUBROUTINES:
 	//*************************************************************************
@@ -130,7 +130,7 @@ namespace MixerComponent {
 
 		// Find the correct MixerNumber
 		if ( CompIndex == 0 ) {
-			MixerNum = FindItemInList( CompName, MixerCond.MixerName(), NumMixers );
+			MixerNum = FindItemInList( CompName, MixerCond, &MixerConditions::MixerName );
 			if ( MixerNum == 0 ) {
 				ShowFatalError( "SimAirLoopMixer: Mixer not found=" + CompName );
 			}
@@ -217,12 +217,12 @@ namespace MixerComponent {
 		int InNodeNum1;
 		int InNodeNum2;
 		std::string CurrentModuleObject; // for ease in getting objects
-		FArray1D_string AlphArray; // Alpha input items for object
-		FArray1D_string cAlphaFields; // Alpha field names
-		FArray1D_string cNumericFields; // Numeric field names
-		FArray1D< Real64 > NumArray; // Numeric input items for object
-		FArray1D_bool lAlphaBlanks; // Logical array, alpha field input BLANK = .TRUE.
-		FArray1D_bool lNumericBlanks; // Logical array, numeric field input BLANK = .TRUE.
+		Array1D_string AlphArray; // Alpha input items for object
+		Array1D_string cAlphaFields; // Alpha field names
+		Array1D_string cNumericFields; // Numeric field names
+		Array1D< Real64 > NumArray; // Numeric input items for object
+		Array1D_bool lAlphaBlanks; // Logical array, alpha field input BLANK = .TRUE.
+		Array1D_bool lNumericBlanks; // Logical array, numeric field input BLANK = .TRUE.
 
 		// Flow
 		CurrentModuleObject = "AirLoopHVAC:ZoneMixer";
@@ -244,7 +244,7 @@ namespace MixerComponent {
 
 			IsNotOK = false;
 			IsBlank = false;
-			VerifyName( AlphArray( 1 ), MixerCond.MixerName(), MixerNum - 1, IsNotOK, IsBlank, CurrentModuleObject + " Name" );
+			VerifyName( AlphArray( 1 ), MixerCond, &MixerConditions::MixerName, MixerNum - 1, IsNotOK, IsBlank, CurrentModuleObject + " Name" );
 			if ( IsNotOK ) {
 				ErrorsFound = true;
 				if ( IsBlank ) AlphArray( 1 ) = "xxxxx";
@@ -581,7 +581,7 @@ namespace MixerComponent {
 	// *****************************************************************************
 
 	void
-	ReportMixer( int const MixerNum )
+	ReportMixer( int const EP_UNUSED( MixerNum ) )
 	{
 
 		// SUBROUTINE INFORMATION:
@@ -627,12 +627,12 @@ namespace MixerComponent {
 	// *****************************************************************************
 
 	void
-		GetZoneMixerIndex(
+	GetZoneMixerIndex(
 		std::string const & MixerName,
 		int & MixerIndex,
 		bool & ErrorsFound,
-		Optional_string_const ThisObjectType
-		)
+		std::string const & ThisObjectType
+	)
 	{
 
 		// SUBROUTINE INFORMATION:
@@ -673,12 +673,11 @@ namespace MixerComponent {
 			GetInputFlag = false;
 		}
 
-		MixerIndex = FindItemInList( MixerName, MixerCond.MixerName(), NumMixers );
+		MixerIndex = FindItemInList( MixerName, MixerCond, &MixerConditions::MixerName );
 		if ( MixerIndex == 0 ) {
-			if ( present( ThisObjectType ) ) {
-				ShowSevereError( ThisObjectType() + ", GetZoneMixerIndex: Zone Mixer not found=" + MixerName );
-			}
-			else {
+			if ( ! ThisObjectType.empty() ) {
+				ShowSevereError( ThisObjectType + ", GetZoneMixerIndex: Zone Mixer not found=" + MixerName );
+			} else {
 				ShowSevereError( "GetZoneMixerIndex: Zone Mixer not found=" + MixerName );
 			}
 			ErrorsFound = true;
@@ -693,7 +692,7 @@ namespace MixerComponent {
 
 	//     NOTICE
 
-	//     Copyright © 1996-2014 The Board of Trustees of the University of Illinois
+	//     Copyright (c) 1996-2015 The Board of Trustees of the University of Illinois
 	//     and The Regents of the University of California through Ernest Orlando Lawrence
 	//     Berkeley National Laboratory.  All rights reserved.
 
