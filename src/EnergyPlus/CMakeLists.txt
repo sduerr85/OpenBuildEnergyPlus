@@ -642,3 +642,19 @@ if(UNIX AND NOT APPLE)
   COMMAND ${CMAKE_COMMAND} -E rename EnergyPlus "${CMAKE_BINARY_DIR}/Products/EnergyPlus")
 endif()
 
+
+
+find_package(SWIG REQUIRED)
+include(${SWIG_USE_FILE})
+
+find_package(PythonLibs)
+include_directories(${PYTHON_INCLUDE_PATH})
+
+set(CMAKE_SWIG_FLAGS "-c++")
+
+set_source_files_properties( SOURCE EnergyPlusPgm.i PROPERTIES CPLUSPLUS ON)
+#set_source_files_properties(public/EnergyPlusPgm.i PROPERTIES SWIG_FLAGS "-includeall")
+
+SWIG_ADD_MODULE(energyplus python EnergyPlusPgm.i EnergyPlusPgm.cc)
+SWIG_LINK_LIBRARIES(energyplus energyplusapi ${PYTHON_LIBRARIES})
+
