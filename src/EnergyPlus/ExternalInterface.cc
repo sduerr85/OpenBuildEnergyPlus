@@ -30,6 +30,8 @@ extern "C" {
 #include <UtilityRoutines.hh>
 #include <DisplayRoutines.hh>
 
+// openBuildNet headers
+#include <BCVTB/openbuildnet.h>
 
 namespace EnergyPlus {
 
@@ -48,10 +50,15 @@ namespace ExternalInterface {
 	// To encapsulate the data and routines required to interface
 	// the Building Controls Virtual Test Bed (BCVTB) and FunctionalMockupUnits (FMU)
 
+    // MODIFIED FOR OPENBUILDNET
+    //      AUTHOR      Truong X. Nghiem
+    // PURPOSE:
+    // Replace BCVTB interface with openBuildNet Node interface.
+    
 	// REFERENCES:
 	// http://simulationresearch.lbl.gov/bcvtb
 	// http://www.modelisar.com
-
+    
 	// Data
 	Real64 tComm( 0.0 ); // Communication time step
 	Real64 tStop( 3600.0 ); // Stop time used during the warmup period
@@ -374,8 +381,9 @@ namespace ExternalInterface {
 			// This problem seems to affect only Windows but not Mac
 			//     close(socketFD)
 		}
-
-
+        
+        // openBuildNet: try to stop the node
+        stopOBNNode();
 	}
 
 	void
@@ -578,6 +586,12 @@ namespace ExternalInterface {
 
 			DisplayString( "Number of outputs in ExternalInterface = " + TrimSigDigits( nOutVal ) );
 			DisplayString( "Number of inputs  in ExternalInterface = " + TrimSigDigits( nInpVar ) );
+            
+            // Create OBN Node
+            ErrorsFound = !initOBNNode();
+            StopExternalInterfaceIfError();
+            
+            DisplayString( "openBuildNet started successfully." );
 
 			firstCall = false;
 
