@@ -116,6 +116,8 @@ derivative works thereof, in binary and source code form.
 #include "utilSocket.h"
 #include "utilXml.h"
 
+void signalOBN_TERM();
+void signalOBN_EXIT();
 
 FILE *f1 = NULL; 
 #define HEADER_LENGTH 54 // =10 + 4*(10+1);
@@ -785,6 +787,13 @@ int sendclientmessage(const int *sockfd, const int *flaWri){
   memset(inpBuf, '\0', HEADER_LENGTH);
 
   if ( *sockfd >= 0 ){
+      // Set OBN signal
+      if (*flaWri > 0) {
+          signalOBN_TERM();
+      } else {
+          signalOBN_EXIT();
+      }
+      
     retVal = writetosocket(sockfd, flaWri, &zI, &zI, &zI, &zD,
 			   NULL, NULL, NULL);
 #ifdef NDEBUG
@@ -1024,83 +1033,6 @@ int readbufferfromsocket(const int *sockfd,
   return retVal;
 }
 
-/////////////////////////////////////////////////////////////////
-/// Exchanges data with the socket.
-///
-/// Clients can call this method to exchange data through the socket.
-///\param sockfd Socket file descripter
-///\param flaWri Communication flag to write to the socket stream.
-///\param flaRea Communication flag read from the socket stream.
-///\param nDblWri Number of double values to write.
-///\param nIntWri Number of integer values to write.
-///\param nBooWri Number of boolean values to write.
-///\param nDblRea Number of double values to read.
-///\param nIntRea Number of integer values to read.
-///\param nBooRea Number of boolean values to read.
-///\param simTimWri Current simulation time in seconds to write.
-///\param dblValWri Double values to write.
-///\param intValWri Integer values to write.
-///\param boolValWri Boolean values to write.
-///\param simTimRea Current simulation time in seconds read from socket.
-///\param dblValRea Double values read from socket.
-///\param intValRea Integer values read from socket.
-///\param boolValRea Boolean values read from socket.
-///\sa int establishclientsocket(uint16_t *portNo)
-///\return The exit value of \c send or \c read, or a negative value if an error occured.
-int exchangewithsocket(const int *sockfd,
-		       const int *flaWri, int *flaRea,
-		       const int *nDblWri, const int *nIntWri, const int *nBooWri,
-		       int *nDblRea, int *nIntRea, int *nBooRea,
-		       double *simTimWri,
-		       double dblValWri[], int intValWri[], int booValWri[],
-		       double *simTimRea,
-		       double dblValRea[], int intValRea[], int booValRea[]){
-  int retVal;
-#ifdef NDEBUG
-  if (f1 == NULL)
-    f1 = fopen ("utilSocket.log", "w");
-  if (f1 == NULL){
-    fprintf(stderr, "Cannot open file %s\n", "utilSocket.log");
-    return -1;
-  }
-  rewind(f1);
-  fprintf(f1, "*** BCVTB client log file.\n");
-  fprintf(f1, "*************************.\n");
-  fprintf(f1, "Writing to socket at time = %e\n", *simTimWri);
-#endif
-
- // In the first call, set the socket buffer length
- // This is done here since we know how many data we need to send.
- if ( REQUIRED_WRITE_LENGTH < 1 ){
-   REQUIRED_WRITE_LENGTH = getrequiredbufferlength(*nDblWri, *nIntWri, *nBooWri);
-   if ( REQUIRED_WRITE_LENGTH <= 0 )
-     return -1;
-   // Increase the buffer length for the socket
-   //   retVal = setrequiredbufferlength(*sockfd, REQUIRED_WRITE_LENGTH, SO_SNDBUF);
-   //   if ( retVal != 0 )
-   //     return retVal;
- }
-
-  retVal = writetosocket(sockfd, flaWri,
-			 nDblWri, nIntWri, nBooWri,
-			 simTimWri,
-			 dblValWri, intValWri, booValWri);
-  if ( retVal >= 0 ){
-#ifdef NDEBUG
-  fprintf(f1, "Reading from socket.\n");
-  fflush(f1);
-#endif
-    retVal = readfromsocket(sockfd, flaRea,
-			    nDblRea, nIntRea, nBooRea,
-			    simTimRea,
-			    dblValRea, intValRea, booValRea);
-  }
-#ifdef NDEBUG
-  fprintf(f1, "Finished exchanging data with socket: simTimRea=%e, flag=%d.\n", *simTimRea, retVal);
-  fflush(f1);
-#endif
-  return retVal;
-}
 
 /////////////////////////////////////////////////////////////////
 /// Exchanges data with the socket.

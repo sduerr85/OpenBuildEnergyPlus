@@ -30,8 +30,7 @@ extern "C" {
 #include <UtilityRoutines.hh>
 #include <DisplayRoutines.hh>
 
-// openBuildNet headers
-#include <BCVTB/openbuildnet.h>
+#include <BCVTB/openbuildnet.h> // openBuildNet headers
 
 namespace EnergyPlus {
 
@@ -382,7 +381,7 @@ namespace ExternalInterface {
 			//     close(socketFD)
 		}
         
-        // openBuildNet: try to stop the node
+        // openBuildNet: stop the node by attempting to end the thread
         stopOBNNode();
 	}
 
@@ -590,9 +589,26 @@ namespace ExternalInterface {
             // Create OBN Node
             ErrorsFound = !initOBNNode();
             StopExternalInterfaceIfError();
-            
             DisplayString( "openBuildNet started successfully." );
+            
+            // Wait for the OBN to start simulation (INIT)
+            setOBNTimeout(30);      // Set timeout; should be -1 by default and if the config file sets the timeout, set it here
+            auto obn_signal = waitforOBNSignal();
+            ErrorsFound = (obn_signal != EPSIG_START);
+            if (obn_signal == EPSIG_TIMEOUT) {
+                // Timeout error
+                ShowSevereError( "ExternalInterface - openBuildNet: Timeout when waiting for openBuildNet." );
+            } else if (obn_signal != EPSIG_START) {
+                ShowSevereError( "ExternalInterface - openBuildNet: openBuildNet did not start simulation properly; received " + getOBNSignalName(obn_signal) + " instead." );
+            }
 
+            // If error, Signal OBN that there was an error and you should quit;
+            // otherwise, everything is fine, we've done initializing
+            resetOBNSignal();
+            signalOBN(ErrorsFound?OBNSIG_EXIT:OBNSIG_DONE);
+            
+            StopExternalInterfaceIfError();
+            
 			firstCall = false;
 
 		} else if ( ! configuredControlPoints ) {
