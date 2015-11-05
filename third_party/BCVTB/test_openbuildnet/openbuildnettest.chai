@@ -1,0 +1,31 @@
+// A simple SMNChai script for testing EnergyPlus-OBN node.
+// Can be used as a template for running simulation with E+-OBN nodes.
+
+//run_simulation(false);
+
+workspace("obnep");
+settings.time_unit(second);
+settings.final_time(3*day);
+
+settings.default_comm("mqtt");	// Can change the default communication
+
+// In creating the EPlus-OBN node, it's important to set the sampling time of its update correctly (based on TimeStep of the IDF file),
+// and set the communication type to "mqtt" because currently this node only supports MQTT.
+var eplusnode = node(["name" : "energyplusnode",
+					  "inputs" : ["in"],
+					  "outputs" : ["out"],
+					  "updates" : [["sampling" : 15*minute, "inputs": ["in": false], "outputs": ["out"]]]
+						 ], false);
+eplusnode.set_comm("mqtt");	 // Either do this or set the default communication to "mqtt" globally
+add_node(eplusnode);
+
+// Receiver node
+var receiver = node(["name" : "receiver",
+"inputs" : ["u"],
+"outputs" : ["y"],
+"updates" : [["sampling" : 15*minute, "inputs" : ["u" : true], "outputs": ["y"]]]]);
+
+connect(eplusnode.port("out"), receiver.port("u"));
+connect(receiver.port("y"), eplusnode.port("in"));
+
+print_system();

@@ -1,26 +1,25 @@
+/* -*- mode: C++; indent-tabs-mode: nil; -*- */
+/** \file
+ * \brief Main code to integrate OBN into EnergyPlus.
+ *
+ * This file is part of the openBuildNet simulation framework
+ * (OBN-Sim) developed at EPFL.
+ *
+ * \author Truong X. Nghiem (xuan.nghiem@epfl.ch)
+ */
+
 #include <memory>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <fstream>
 
 #include <obnnode.h>
 #include "openbuildnet.h"
 
-extern "C" {
-#include <BCVTB/utilSocket.h>
-}
-
 #define NDBLMAX 1024    // The maximum number of double values that can be read; this MUST be the same number hard-coded in ExternalInterface.cc
 
 using namespace OBNnode;
-
-extern "C" void signalOBN_TERM() {
-    EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_TERM);
-}
-
-extern "C" void signalOBN_EXIT() {
-    EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_EXIT);
-}
 
 namespace EnergyPlus {
     namespace ExternalInterface {
@@ -97,6 +96,14 @@ namespace EnergyPlus {
         void resetOBNSignal() {
             std::lock_guard<std::mutex> mylock(obn_signal_to_eplus_mutex);
             obn_signal_to_eplus = EPSIG_NONE;
+        }
+        
+        void signalOBN_TERM() {
+            signalOBN(OBNSIG_TERM);
+        }
+        
+        void signalOBN_EXIT() {
+            signalOBN(OBNSIG_EXIT);
         }
         
         OBNSignalToEPlus waitforOBNSignal(int timeout) {
@@ -283,12 +290,80 @@ namespace EnergyPlus {
         
         std::unique_ptr<EPlusOBNThread> obn_thread;
         
-        bool initOBNNode() {
+        bool initOBNNode(const char * docname) {
+            if (!docname) return false;
             if (!obn_thread) {
-                obn_thread.reset(new EPlusOBNThread("energyplusnode", "obnep"));
+                std::string node_name;
+                std::string workspace;
+                std::string comm;
+                std::string comm_config;
+                const std::string spacechars(" \t");
                 
-                // Start the thread
-                return obn_thread->startThread();
+                // Read the config file
+                std::ifstream configfile(docname);
+                bool success = configfile.good();
+                if (success) {
+                    std::string oneline;
+                    
+                    // The first line: communication settings
+                    if ((success = !std::getline(configfile, oneline).fail())) {
+                        // Extract the first word
+                        auto pos = oneline.find_first_of(spacechars);
+                        if (pos == std::string::npos) {
+                            comm = oneline;
+                        } else {
+                            comm = oneline.substr(0, pos);
+                            // Extract the comm config if there is: find the first non-blank char
+                            pos = oneline.find_first_not_of(spacechars, pos);
+                            if (pos != std::string::npos) {
+                                comm_config = oneline.substr(pos);
+                            }
+                        }
+                    }
+                    
+                    // The second line: node settings
+                    if (success && (success = !std::getline(configfile, oneline).fail())) {
+                        // Extract the first word -> node's name
+                        auto pos = oneline.find_first_of(spacechars);
+                        if (pos == std::string::npos) {
+                            node_name = oneline;
+                        } else {
+                            node_name = oneline.substr(0, pos);
+                            // Extract the optional workspace name: find the first non-blank char
+                            pos = oneline.find_first_not_of(spacechars, pos);
+                            if (pos != std::string::npos) {
+                                workspace = oneline.substr(pos);
+                            }
+                        }
+                    }
+                }
+                if (!success) {
+                    return false;
+                }
+                
+                // Check the communication
+                comm = OBNsim::Utils::toLower(OBNsim::Utils::trim(comm));
+                node_name = OBNsim::Utils::trim(node_name);
+                if (comm == "mqtt") {
+                    // Check the node name
+                    if (!OBNsim::Utils::isValidNodeName(node_name)) {
+                        return false;
+                    }
+                    
+                    obn_thread.reset(new EPlusOBNThread(node_name, workspace));
+                    
+                    // Config the MQTT if needed
+                    comm_config = OBNsim::Utils::trim(comm_config);
+                    if (!comm_config.empty()) {
+                        obn_thread->m_obnnode.setServerAddress(comm_config);
+                    }
+                    
+                    // Start the thread
+                    return obn_thread->startThread();
+                } else {
+                    // Only MQTT is supported
+                    return false;
+                }
             }
             
             return true;
@@ -388,122 +463,93 @@ namespace EnergyPlus {
             }
         }
         
-    }
-}
-
-
-/** Process the common signal from OBN to E+ in exchangewithsocket().
- \param sig The signal from OBN.
- \param flaRea To set an appropriate flag for E+.
- \return The return value (negative if error of communication, non-negative if success).
- */
-int processOBNSignal(EnergyPlus::ExternalInterface::OBNSignalToEPlus sig, int *flaRea) {
-    switch (sig) {
-        case EnergyPlus::ExternalInterface::EPSIG_TERM:
-            // Normal termination
-            *flaRea = 1;
-            return 0;
-            
-        case EnergyPlus::ExternalInterface::EPSIG_QUIT:
-            // Abnormal termination
-            *flaRea = -1;
-            return 0;
-            
-        case EnergyPlus::ExternalInterface::EPSIG_TIMEOUT:
-            return -21;
-            
-        default:
-            // If we reach this, it means the received signal is unexpected (of the wrong type)
-            return -22;
-    }
-}
-
-
-/////////////////////////////////////////////////////////////////
-/// Exchanges data with the socket.
-///
-/// Clients can call this method to exchange data through the socket.
-///\param sockfd Socket file descripter
-///\param flaWri Communication flag to write to the socket stream.
-///\param flaRea Communication flag read from the socket stream.
-///\param nDblWri Number of double values to write.
-///\param nIntWri Number of integer values to write.
-///\param nBooWri Number of boolean values to write.
-///\param nDblRea Number of double values to read.
-///\param nIntRea Number of integer values to read.
-///\param nBooRea Number of boolean values to read.
-///\param simTimWri Current simulation time in seconds to write.
-///\param dblValWri Double values to write.
-///\param intValWri Integer values to write.
-///\param boolValWri Boolean values to write.
-///\param simTimRea Current simulation time in seconds read from socket.
-///\param dblValRea Double values read from socket.
-///\param intValRea Integer values read from socket.
-///\param boolValRea Boolean values read from socket.
-///\sa int establishclientsocket(uint16_t *portNo)
-///\return The exit value of \c send or \c read, or a negative value if an error occured.
-
-/// This function was modified for openBuildNet.
-
-extern "C" int exchangewithsocket(const int *sockfd,
-                                  const int *flaWri, int *flaRea,
-                                  const int *nDblWri, const int *nIntWri, const int *nBooWri,
-                                  int *nDblRea, int *nIntRea, int *nBooRea,
-                                  double *simTimWri,
-                                  double dblValWri[], int intValWri[], int booValWri[],
+        /** Process the common signal from OBN to E+ in exchangewithsocket().
+         \param sig The signal from OBN.
+         \param flaRea To set an appropriate flag for E+.
+         \return The return value (negative if error of communication, non-negative if success).
+         */
+        int processOBNSignal(EnergyPlus::ExternalInterface::OBNSignalToEPlus sig, int *flaRea) {
+            switch (sig) {
+                case EnergyPlus::ExternalInterface::EPSIG_TERM:
+                    // Normal termination
+                    *flaRea = 1;
+                    return 0;
+                    
+                case EnergyPlus::ExternalInterface::EPSIG_QUIT:
+                    // Abnormal termination
+                    *flaRea = -1;
+                    return 0;
+                    
+                case EnergyPlus::ExternalInterface::EPSIG_TIMEOUT:
+                    return -21;
+                    
+                default:
+                    // If we reach this, it means the received signal is unexpected (of the wrong type)
+                    return -22;
+            }
+        }
+        
+        
+        /////////////////////////////////////////////////////////////////
+        /// Exchanges data with openBuildNet.
+        ///
+        /// Clients can call this method to exchange data through the socket.
+        ///\param flaWri Communication flag to write to the socket stream.
+        ///\param flaRea Communication flag read from the socket stream.
+        ///\param nDblWri Number of double values to write.
+        ///\param nDblRea Number of double values to read.
+        ///\param dblValWri Double values to write.
+        ///\param simTimRea Current simulation time in seconds read from socket.
+        ///\param dblValRea Double values read from socket.
+        ///\return The exit value of \c send or \c read, or a negative value if an error occured.
+        
+        int exchangedoublewithOBN(const int *flaWri, int *flaRea,
+                                  const int *nDblWri,
+                                  int *nDblRea,
+                                  double dblValWri[],
                                   double *simTimRea,
-                                  double dblValRea[], int intValRea[], int booValRea[]){
-    int retVal = 0;
-    
-    *flaRea = 0;    // Initialize to normal status
-    
-    // Wait for UPDATE_Y from OBN before sending out the values
-    auto sig = EnergyPlus::ExternalInterface::waitforOBNSignal();
-    EnergyPlus::ExternalInterface::resetOBNSignal();
-    if (sig != EnergyPlus::ExternalInterface::EPSIG_Y) {
-        return processOBNSignal(sig, flaRea);
-    }
-    
-    // Set the values of the output port
-    if (EnergyPlus::ExternalInterface::obn_thread) {
-        retVal = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.setOutputValues(*nDblWri, dblValWri);
-    }
-    
-    EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
-    
-    retVal = writetosocket(sockfd, flaWri,
-                           nDblWri, nIntWri, nBooWri,
-                           simTimWri,
-                           dblValWri, intValWri, booValWri);
-    if ( retVal >= 0 ){
-        retVal = readfromsocket(sockfd, flaRea,
-                                nDblRea, nIntRea, nBooRea,
-                                simTimRea,
-                                dblValRea, intValRea, booValRea);
-
-        if (retVal < 0 || *flaRea != 0) {
+                                  double dblValRea[]){
+            
+            *flaRea = 0;    // Initialize to normal status
+            
+            if (!EnergyPlus::ExternalInterface::obn_thread) {
+                return -1;
+            }
+            
+            int retVal = 0;
+            
+            // Wait for UPDATE_Y from OBN before sending out the values
+            auto sig = EnergyPlus::ExternalInterface::waitforOBNSignal();
+            EnergyPlus::ExternalInterface::resetOBNSignal();
+            if (sig != EnergyPlus::ExternalInterface::EPSIG_Y) {
+                return processOBNSignal(sig, flaRea);
+            }
+            
+            // Set the values of the output port
+            retVal = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.setOutputValues(*nDblWri, dblValWri);
+            
+            EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
+            
+            if ( retVal >= 0 ){
+                // Wait for UPDATE_X from OBN before reading the input values
+                sig = EnergyPlus::ExternalInterface::waitforOBNSignal();
+                EnergyPlus::ExternalInterface::resetOBNSignal();
+                if (sig != EnergyPlus::ExternalInterface::EPSIG_X) {
+                    return processOBNSignal(sig, flaRea);
+                }
+                
+                // Obtain the input values
+                retVal = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.getInputValues(nDblRea, dblValRea);
+                
+                // Get the current simulation time from OBN for EnergyPlus
+                *simTimRea = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.currentSimulationTime<std::chrono::seconds>();
+                
+                // The flag flaRea is already set at the beginning
+                
+                EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
+                
+            }
             return retVal;
         }
-        
-        // Wait for UPDATE_X from OBN before reading the input values
-        sig = EnergyPlus::ExternalInterface::waitforOBNSignal();
-        EnergyPlus::ExternalInterface::resetOBNSignal();
-        if (sig != EnergyPlus::ExternalInterface::EPSIG_X) {
-            return processOBNSignal(sig, flaRea);
-        }
-        
-        if (EnergyPlus::ExternalInterface::obn_thread) {
-            // Obtain the input values
-            retVal = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.getInputValues(nDblRea, dblValRea);
-            
-            // Get the current simulation time from OBN for EnergyPlus
-            *simTimRea = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.currentSimulationTime<std::chrono::seconds>();
-            
-            // The flag flaRea is already set at the beginning
-        }
-        
-        EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
-        
     }
-    return retVal;
 }

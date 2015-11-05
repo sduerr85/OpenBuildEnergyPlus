@@ -142,7 +142,6 @@ extern int REQUIRED_WRITE_LENGTH;
 /// version number of the server
 extern int SERVER_VERSION;
 
-
 ////////////////////////////////////////////////////////////////
 /// Appends a character array to another character array.
 ///

@@ -90,7 +90,7 @@ namespace ExternalInterface {
 	int NumExternalInterfacesFMUExport( 0 ); // Number of FMU ExternalInterface objects
 	int NumFMUObjects( 0 ); // Number of FMU objects
 	int FMUExportActivate( 0 ); // FMU Export flag
-	bool haveExternalInterfaceBCVTB( false ); // Flag for BCVTB interface
+	bool haveExternalInterfaceBCVTB( false ); // Flag for BCVTB interface; for this modified version, this is for OBN
 	bool haveExternalInterfaceFMUImport( false ); // Flag for FMU-Import interface
 	bool haveExternalInterfaceFMUExport( false ); // Flag for FMU-Export interface
 	int simulationStatus( 1 ); // Status flag. Used to report during
@@ -104,6 +104,8 @@ namespace ExternalInterface {
 	bool ErrorsFound( false ); // Set to true if errors are found
 	bool noMoreValues( false ); // Flag, true if no more values
 	// will be sent by the server
+    
+    bool OBNisRunning( false ); // Whether OBN is running
 
 	Array1D_string varKeys; // Keys of report variables used for data exchange
 	Array1D_string varNames; // Names of report variables used for data exchange
@@ -325,6 +327,11 @@ namespace ExternalInterface {
 
 		if ( ( NumExternalInterfacesBCVTB != 0 ) || ( NumExternalInterfacesFMUExport != 0 ) ) {
 			if ( ErrorsFound ) {
+                if (OBNisRunning) {
+                    // Stop OBN
+                    signalOBN_EXIT();
+                }
+                
 				// Check if the socket is open
 				if ( socketFD >= 0 ) {
 					// Socket is open
@@ -382,7 +389,14 @@ namespace ExternalInterface {
 		}
         
         // openBuildNet: stop the node by attempting to end the thread
-        stopOBNNode();
+        if (OBNisRunning) {
+            if (FlagToWriteToSocket > 0) {
+                signalOBN_TERM();
+            } else {
+                signalOBN_EXIT();
+            }
+            stopOBNNode();
+        }
 	}
 
 	void
@@ -460,42 +474,39 @@ namespace ExternalInterface {
 		static int nOutVal; // Number of output values (E+ -> ExternalInterface)
 		static int nInpVar; // Number of input values (ExternalInterface -> E+)
 		int retVal; // Return value of function call, used for error handling
-		int mainVersion; // The version number
+        //int mainVersion; // The version number
 		std::string validateErrMsg; // error returned when xml Schema validate failed
 		bool socFileExist; // Set to true if socket configuration
 		// file exists
 		bool simFileExist; // Set to true if simulation configuration
 		// file exists
+        
+        const std::string obnCfgFileName("openbuildnet.cfg");   // Name of the config file for openBuildNet (replacing BCVTB)
+        bool obnCfgFileExist;
 
 		if ( firstCall ) {
 			DisplayString( "ExternalInterface initializes." );
 			// do one time initializations
 
-			if ( haveExternalInterfaceBCVTB ) {
-				// Check version number
-				mainVersion = getmainversionnumber();
-				if ( mainVersion < 0 ) {
-					ShowSevereError( "ExternalInterface: BCVTB is not installed in this version." );
-					ErrorsFound = true;
-					StopExternalInterfaceIfError();
-				}
-			}
-
-			// Get port number
-			{ IOFlags flags; gio::inquire( socCfgFilNam, flags ); socFileExist = flags.exists(); }
-			if ( socFileExist ) {
-				socketFD = establishclientsocket( socCfgFilNam.c_str() );
-				if ( socketFD < 0 ) {
-					ShowSevereError( "ExternalInterface: Could not open socket. File descriptor = " + TrimSigDigits( socketFD ) + '.' );
-					ErrorsFound = true;
-				}
-			} else {
-				ShowSevereError( "ExternalInterface: Did not find file \"" + socCfgFilNam + "\"." );
-				ShowContinueError( "This file needs to be in same directory as in.idf." );
-				ShowContinueError( "Check the documentation for the ExternalInterface." );
-				ErrorsFound = true;
-			}
-
+            if (haveExternalInterfaceFMUExport) {
+                // Get port number
+                { IOFlags flags; gio::inquire( socCfgFilNam, flags ); socFileExist = flags.exists(); }
+                if ( socFileExist ) {
+                    socketFD = establishclientsocket( socCfgFilNam.c_str() );
+                    if ( socketFD < 0 ) {
+                        ShowSevereError( "ExternalInterface: Could not open socket. File descriptor = " + TrimSigDigits( socketFD ) + '.' );
+                        ErrorsFound = true;
+                    }
+                } else {
+                    ShowSevereError( "ExternalInterface: Did not find file \"" + socCfgFilNam + "\"." );
+                    ShowContinueError( "This file needs to be in same directory as in.idf." );
+                    ShowContinueError( "Check the documentation for the ExternalInterface." );
+                    ErrorsFound = true;
+                }
+            }
+            
+            StopExternalInterfaceIfError();
+            
 			// Make sure that idf file specified a run period other than
 			// design day and system sizing.
 			ValidateRunControl();
@@ -586,28 +597,41 @@ namespace ExternalInterface {
 			DisplayString( "Number of outputs in ExternalInterface = " + TrimSigDigits( nOutVal ) );
 			DisplayString( "Number of inputs  in ExternalInterface = " + TrimSigDigits( nInpVar ) );
             
-            // Create OBN Node
-            ErrorsFound = !initOBNNode();
-            StopExternalInterfaceIfError();
-            DisplayString( "openBuildNet started successfully." );
-            
-            // Wait for the OBN to start simulation (INIT)
-            setOBNTimeout(30);      // Set timeout; should be -1 by default and if the config file sets the timeout, set it here
-            auto obn_signal = waitforOBNSignal();
-            ErrorsFound = (obn_signal != EPSIG_START);
-            if (obn_signal == EPSIG_TIMEOUT) {
-                // Timeout error
-                ShowSevereError( "ExternalInterface - openBuildNet: Timeout when waiting for openBuildNet." );
-            } else if (obn_signal != EPSIG_START) {
-                ShowSevereError( "ExternalInterface - openBuildNet: openBuildNet did not start simulation properly; received " + getOBNSignalName(obn_signal) + " instead." );
+            if ( haveExternalInterfaceBCVTB ) {
+                // Create OBN Node
+                { IOFlags flags; gio::inquire( obnCfgFileName, flags ); obnCfgFileExist = flags.exists(); }
+                if (obnCfgFileExist) {
+                    if (initOBNNode(obnCfgFileName.c_str())) {
+                        DisplayString( "openBuildNet started successfully." );
+                        
+                        // Wait for the OBN to start simulation (INIT)
+                        setOBNTimeout(30);      // Set timeout; should be -1 by default and if the config file sets the timeout, set it here
+                        auto obn_signal = waitforOBNSignal();
+                        ErrorsFound = (obn_signal != EPSIG_START);
+                        if (obn_signal == EPSIG_TIMEOUT) {
+                            // Timeout error
+                            ShowSevereError( "ExternalInterface - openBuildNet: Timeout when waiting for openBuildNet." );
+                        } else if (obn_signal != EPSIG_START) {
+                            ShowSevereError( "ExternalInterface - openBuildNet: openBuildNet did not start simulation properly; received " + getOBNSignalName(obn_signal) + " instead." );
+                        }
+                        
+                        // If error, Signal OBN that there was an error and you should quit;
+                        // otherwise, everything is fine, we've done initializing
+                        resetOBNSignal();
+                        signalOBN(ErrorsFound?OBNSIG_EXIT:OBNSIG_DONE);
+                        OBNisRunning = !ErrorsFound;
+                    } else {
+                        ShowSevereError( "ExternalInterface - openBuildNet: Could not initialize openBuildNet." );
+                        ErrorsFound = true;
+                    }
+                } else {
+                    ShowSevereError( "ExternalInterface - openBuildNet: Did not find file \"" + obnCfgFileName + "\"." );
+                    ShowContinueError( "This file specifies the configurations of the openBuildNet node." );
+                    ShowContinueError( "It needs to be in same directory as the idf." );
+                    ErrorsFound = true;
+                }
+                StopExternalInterfaceIfError();
             }
-
-            // If error, Signal OBN that there was an error and you should quit;
-            // otherwise, everything is fine, we've done initializing
-            resetOBNSignal();
-            signalOBN(ErrorsFound?OBNSIG_EXIT:OBNSIG_DONE);
-            
-            StopExternalInterfaceIfError();
             
 			firstCall = false;
 
@@ -2072,7 +2096,7 @@ namespace ExternalInterface {
 			retVal = 0;
 			flaRea = 0;
 			if ( haveExternalInterfaceBCVTB ) {
-				retVal = exchangedoubleswithsocket( &socketFD, &flaWri, &flaRea, &nDblWri, &nDblRea, &preSimTim, dblValWri.data_, &curSimTim, dblValRea.data_ );
+                retVal = exchangedoublewithOBN(&flaWri, &flaRea, &nDblWri, &nDblRea, dblValWri.data_, &curSimTim, dblValRea.data_);
 			} else if ( haveExternalInterfaceFMUExport ) {
 				retVal = exchangedoubleswithsocketFMU( &socketFD, &flaWri, &flaRea, &nDblWri, &nDblRea, &preSimTim, dblValWri.data_, &curSimTim, dblValRea.data_, &FMUExportActivate );
 			}
