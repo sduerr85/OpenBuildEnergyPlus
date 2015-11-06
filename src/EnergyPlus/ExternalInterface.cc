@@ -370,23 +370,26 @@ namespace ExternalInterface {
 
 		// SUBROUTINE LOCAL VARIABLE DECLARATIONS:
 		int retVal; // Return value, needed to catch return value of function call
-		bool fileExist; // Set to true if file exists
 
 		// Try to establish socket connection. This is needed if Ptolemy started E+,
 		//  but E+ had an error before the call to InitExternalInterface.
+        // Does not do this if openBuildNet is used, not FMU export.
 
-		{ IOFlags flags; gio::inquire( socCfgFilNam, flags ); fileExist = flags.exists(); }
+        if (haveExternalInterfaceFMUExport) {
+            bool fileExist; // Set to true if file exists
+            { IOFlags flags; gio::inquire( socCfgFilNam, flags ); fileExist = flags.exists(); }
 
-		if ( ( socketFD == -1 ) && fileExist ) {
-			socketFD = establishclientsocket( socCfgFilNam.c_str() );
-		}
-
-		if ( socketFD >= 0 ) {
-			retVal = sendclientmessage( &socketFD, &FlagToWriteToSocket );
-			// Don't close socket as this may give sometimes an IOException in Windows
-			// This problem seems to affect only Windows but not Mac
-			//     close(socketFD)
-		}
+            if ( ( socketFD == -1 ) && fileExist ) {
+                socketFD = establishclientsocket( socCfgFilNam.c_str() );
+            }
+            
+            if ( socketFD >= 0 ) {
+                retVal = sendclientmessage( &socketFD, &FlagToWriteToSocket );
+                // Don't close socket as this may give sometimes an IOException in Windows
+                // This problem seems to affect only Windows but not Mac
+                //     close(socketFD)
+            }
+        }
         
         // openBuildNet: stop the node by attempting to end the thread
         if (OBNisRunning) {
