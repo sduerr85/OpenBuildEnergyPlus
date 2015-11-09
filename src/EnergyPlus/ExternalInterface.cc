@@ -2126,8 +2126,14 @@ namespace ExternalInterface {
 				noMoreValues = true;
 				gio::write( retValCha, Format_1000 ) << flaRea;
 				if ( haveExternalInterfaceBCVTB ) {
-					ShowSevereError( "ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours." );
-					StopExternalInterfaceIfError();
+                    if (quitIfOBNTerminates) {
+                        ShowSevereError( "ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours and will terminate the simulation." );
+                        continueSimulation = false;
+                        ErrorsFound = true;
+                    } else {
+                        ShowWarningError("ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours but will continue simulation with last known inputs.");
+                    }
+                    StopExternalInterfaceIfError();
 				}
 			}
 

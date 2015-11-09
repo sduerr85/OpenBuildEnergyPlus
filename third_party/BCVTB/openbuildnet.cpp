@@ -24,6 +24,8 @@ using namespace OBNnode;
 namespace EnergyPlus {
     namespace ExternalInterface {
         
+        bool quitIfOBNTerminates = false;
+        
         EPlusSignalToOBN eplus_signal_to_obn = OBNSIG_NONE;       ///< The signal from E+ to OBN.
         std::mutex eplus_signal_to_obn_mutex;       ///< Mutex to access the signal
         std::condition_variable eplus_signal_to_obn_cond;   ///< Condition variable to wait for the signal
@@ -333,6 +335,17 @@ namespace EnergyPlus {
                             pos = oneline.find_first_not_of(spacechars, pos);
                             if (pos != std::string::npos) {
                                 workspace = oneline.substr(pos);
+                            }
+                        }
+                    }
+                    
+                    // The third line: quitIfOBNStops
+                    if (success && !configfile.eof()) {
+                        success = !std::getline(configfile, oneline).fail();
+                        if (success) {
+                            std::string theOption = OBNsim::Utils::toLower(OBNsim::Utils::trim(oneline));
+                            if (theOption == "quitifobnstops") {
+                                quitIfOBNTerminates = true;
                             }
                         }
                     }

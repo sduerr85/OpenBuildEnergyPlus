@@ -21,10 +21,12 @@ namespace EnergyPlus {
          The config file is a text file which has the following format:
          <comm> [comm_config]
          <nodename> [workspace]
+         [quitIfOBNstops]
          where <comm> specifies the communication: currently only "mqtt" is supported.
          [comm_config] is the optional configuration of the communication: for MQTT, it's the server address and port.
          <nodename> is the required name of the node.
          [workspace] is the optional workspace name.
+         [quitIfOBNstops] will tell EnergyPlus to quit immediately (with an error) if OBN stops before the end of the E+ simulation period.
          */
         bool initOBNNode(const char * docname);
         
@@ -67,6 +69,10 @@ namespace EnergyPlus {
         
         /** Signal the OBN to exit (improperly, often because of error). */
         void signalOBN_EXIT();
+        
+        /** This flag is true if EnergyPlus should quit immediately (with an error) if OBN stops.
+         The default is false, which means that if OBN terminates, E+ continues running with the last known input values. */
+        extern bool quitIfOBNTerminates;
         
         /** Waits for the signal from the OBN thread to be not EPSIG_NONE, and returns the new signal.
          \param timeout Optional timeout value in seconds; non-positive values mean using the default timeout (default).
