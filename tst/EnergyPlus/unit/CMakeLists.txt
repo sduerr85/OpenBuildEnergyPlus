@@ -1,22 +1,24 @@
 INCLUDE_DIRECTORIES( ${CMAKE_SOURCE_DIR}/src )
 INCLUDE_DIRECTORIES( ${CMAKE_SOURCE_DIR}/src/EnergyPlus )
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR} )
 
 set( test_src
   TestHelpers/IdfParser.cc
   TestHelpers/IdfParser.hh
   Fixtures/EnergyPlusFixture.cc
   Fixtures/EnergyPlusFixture.hh
-  Fixtures/HVACFixture.hh
   Fixtures/IdfParserFixture.hh
   Fixtures/InputProcessorFixture.hh
   Fixtures/SQLiteFixture.hh
   AdvancedAFN.unit.cc
   AirflowNetworkBalanceManager.unit.cc
   AirflowNetworkSolver.unit.cc
-  ChillerElectricEIR.unit.cc;
-  CondenserLoopTowers.unit.cc;
+  ChillerElectricEIR.unit.cc
+  ChillerIndirectAbsorption.unit.cc
+  CondenserLoopTowers.unit.cc
   ConvectionCoefficients.unit.cc
   DataPlant.unit.cc
+  Datasets.unit.cc
   DataZoneEquipment.unit.cc
   DemandResponse.unit.cc
   DOASEffectOnZoneSizing.unit.cc
@@ -32,6 +34,7 @@ set( test_src
   Furnaces.unit.cc
   GroundHeatExchangers.unit.cc
   HeatBalanceManager.unit.cc
+  HeatBalFiniteDiffManager.unit.cc
   HeatPumpWaterToWaterSimple.unit.cc
   HeatRecovery.unit.cc
   Humidifiers.unit.cc
@@ -50,6 +53,9 @@ set( test_src
   ManageElectricPower.unit.cc
   MixedAir.unit.cc
   MixerComponent.unit.cc
+  NodeInputManager.unit.cc
+  PlantHeatExchangerFluidToFluid.unit.cc
+  PlantUtilities.unit.cc
   PurchasedAirManager.unit.cc
   OutdoorAirUnit.unit.cc
   OutputProcessor.unit.cc
@@ -65,13 +71,16 @@ set( test_src
   SiteBuildingSurfaceGroundTemperatures.unit.cc
   SiteDeepGroundTemperatures.unit.cc
   SiteFCFactorMethodGroundTemperatures.unit.cc
+  SiteGroundDomain.unit.cc
   SiteShallowGroundTemperatures.unit.cc
   SizingAnalysisObjects.unit.cc
   SizingManager.unit.cc
   SolarShading.unit.cc
   SortAndStringUtilities.unit.cc
   SQLite.unit.cc
+  SurfaceGeometry.unit.cc
   SwimmingPool.unit.cc
+  ThermalComfort.unit.cc
   VariableSpeedCoils.unit.cc
   Vectors.unit.cc
   Vector.unit.cc

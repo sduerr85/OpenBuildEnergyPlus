@@ -913,7 +913,9 @@ namespace ExternalInterface {
 		// Instantiate FMUs
 		for ( i = 1; i <= NumFMUObjects; ++i ) {
 			for ( j = 1; j <= FMU( i ).NumInstances; ++j ) {
-				FMU( i ).Instance( j ).fmicomponent = fmiEPlusInstantiateSlave( (char*)FMU( i ).Instance( j ).WorkingFolder.c_str(), &FMU( i ).Instance( j ).LenWorkingFolder, &FMU( i ).TimeOut, &FMU( i ).Visible, &FMU( i ).Interactive, &FMU( i ).LoggingOn, &FMU( i ).Instance( j ).Index );
+				FMU(i).Instance(j).fmicomponent = fmiEPlusInstantiateSlave( 
+					(char*)FMU(i).Instance(j).WorkingFolder.c_str(), &FMU(i).Instance(j).LenWorkingFolder, 
+					&FMU(i).TimeOut, &FMU(i).Visible, &FMU(i).Interactive, &FMU(i).LoggingOn, &FMU(i).Instance(j).Index);
 				// TODO: This is doing a null pointer check; OK?
 				if ( ! FMU( i ).Instance( j ).fmicomponent ) {
 					ShowSevereError( "ExternalInterface/CalcExternalInterfaceFMUImport: Error when trying to instantiate" );
@@ -928,7 +930,8 @@ namespace ExternalInterface {
 		int localfmiTrue( fmiTrue );
 		for ( i = 1; i <= NumFMUObjects; ++i ) {
 			for ( j = 1; j <= FMU( i ).NumInstances; ++j ) {
-				FMU( i ).Instance( j ).fmistatus = fmiEPlusInitializeSlave( &FMU( i ).Instance( j ).fmicomponent, &tStart, &localfmiTrue, &tStop, &FMU( i ).Instance( j ).Index );
+				FMU( i ).Instance( j ).fmistatus = fmiEPlusInitializeSlave( &FMU( i ).Instance( j ).fmicomponent, 
+					&tStart, &localfmiTrue, &tStop, &FMU( i ).Instance( j ).Index );
 				if ( FMU( i ).Instance( j ).fmistatus != fmiOK ) {
 					ShowSevereError( "ExternalInterface/CalcExternalInterfaceFMUImport: Error when trying to initialize" );
 					ShowContinueError( "instance \"" + FMU( i ).Instance( j ).Name + "\" of FMU \"" + FMU( i ).Name + "\"" );
@@ -962,7 +965,8 @@ namespace ExternalInterface {
 		// Initialize FMUs
 		for ( i = 1; i <= NumFMUObjects; ++i ) {
 			for ( j = 1; j <= FMU( i ).NumInstances; ++j ) {
-				FMU( i ).Instance( j ).fmistatus = fmiEPlusInitializeSlave( &FMU( i ).Instance( j ).fmicomponent, &tStart, &localfmiTrue, &tStop, &FMU( i ).Instance( j ).Index );
+				FMU( i ).Instance( j ).fmistatus = fmiEPlusInitializeSlave( &FMU( i ).Instance( j ).fmicomponent, 
+					&tStart, &localfmiTrue, &tStop, &FMU( i ).Instance( j ).Index );
 				if ( FMU( i ).Instance( j ).fmistatus != fmiOK ) {
 					ShowSevereError( "ExternalInterface/CalcExternalInterfaceFMUImport: Error when trying to initialize" );
 					ShowContinueError( "instance \"" + FMU( i ).Instance( j ).Name + "\" of FMU \"" + FMU( i ).Name + "\"" );
@@ -975,7 +979,7 @@ namespace ExternalInterface {
 	}
 
 	void
-	TerminateResetFreeFMUImport()
+	TerminateResetFreeFMUImport(int fmiEndSimulation)
 	{
 		// SUBROUTINE INFORMATION:
 		//       AUTHOR         Thierry S. Nouidui, Michael Wetter, Wangda Zuo
@@ -994,7 +998,7 @@ namespace ExternalInterface {
 			for ( j = 1; j <= FMU( i ).NumInstances; ++j ) {
 				if ( FMU( i ).Instance( j ).fmistatus != fmiFatal ) {
 					// Cleanup slaves
-					FMU( i ).Instance( j ).fmistatus = fmiEPlusFreeSlave( &FMU( i ).Instance( j ).fmicomponent, &FMU( i ).Instance( j ).Index );
+					FMU( i ).Instance( j ).fmistatus = fmiEPlusFreeSlave( &FMU( i ).Instance( j ).fmicomponent, &FMU( i ).Instance( j ).Index, &fmiEndSimulation );
 				}
 				// check if fmiComponent has been freed
 				if ( ! FMU( i ).Instance( j ).fmicomponent ) {
@@ -1224,7 +1228,7 @@ namespace ExternalInterface {
 						auto workingFolderArr( getCharArrayFromString( FMU( i ).Instance( j ).WorkingFolder ) );
 
 						// make the library call
-						FMU( i ).Instance( j ).Index = model_ID_GUID( &workingFolderArr[0], &FMU( i ).Instance( j ).LenWorkingFolder, &FMU( i ).Instance( j ).NumInputVariablesInFMU, &FMU( i ).Instance( j ).NumOutputVariablesInFMU );
+						FMU(i).Instance(j).Index = model_ID_GUID((char*)FMU(i).Instance(j).Name.c_str(), &workingFolderArr[0], &FMU(i).Instance(j).LenWorkingFolder, &FMU(i).Instance(j).NumInputVariablesInFMU, &FMU(i).Instance(j).NumOutputVariablesInFMU);
 
 						if ( FMU( i ).Instance( j ).Index < 0 ) {
 							ShowSevereError( "ExternalInterface/InitExternalInterfaceFMUImport: Error when trying to" );
@@ -1326,7 +1330,7 @@ namespace ExternalInterface {
 							int inputVarNameLen( len( FMU( i ).Instance( j ).fmuInputVariable( k ).Name ) );
 
 							// make the library call
-							FMU( i ).Instance( j ).fmuInputVariable( k ).ValueReference = getValueReferenceByNameFMUInputVariables( &inputVarNameArr[0], &inputVarNameLen, &FMU( i ).Instance( j ).Index );
+							FMU(i).Instance(j).fmuInputVariable(k).ValueReference = getValueReferenceByNameFMUInputVariables(&inputVarNameArr[0], &inputVarNameLen, &FMU(i).Instance(j).Index);
 
 							// postprocess args in case they are used later
 							FMU( i ).Instance( j ).fmuInputVariable( k ).Name = getStringFromCharArray( inputVarNameArr );
@@ -1432,7 +1436,7 @@ namespace ExternalInterface {
 							int lengthVar( len( FMU( i ).Instance( j ).fmuOutputVariableSchedule( k ).Name ) );
 
 							// make the library call
-							FMU( i ).Instance( j ).fmuOutputVariableSchedule( k ).ValueReference = getValueReferenceByNameFMUOutputVariables( &NameCharArr[0], &lengthVar, &FMU( i ).Instance( j ).Index );
+							FMU(i).Instance(j).fmuOutputVariableSchedule(k).ValueReference = getValueReferenceByNameFMUOutputVariables(&NameCharArr[0], &lengthVar, &FMU(i).Instance(j).Index);
 
 							// postprocess the arguments after the library call in case they are changed and used later
 							FMU( i ).Instance( j ).fmuOutputVariableSchedule( k ).Name = getStringFromCharArray( NameCharArr );
@@ -1501,7 +1505,7 @@ namespace ExternalInterface {
 							// get the value reference by using the FMU name and the variable name.
 							auto NameCharArr( getCharArrayFromString( FMU( i ).Instance( j ).fmuOutputVariableVariable( k ).Name ) );
 							int tempLength( len( FMU( i ).Instance( j ).fmuOutputVariableVariable( k ).Name ) );
-							FMU( i ).Instance( j ).fmuOutputVariableVariable( k ).ValueReference = getValueReferenceByNameFMUOutputVariables( &NameCharArr[0], &tempLength, &FMU( i ).Instance( j ).Index );
+							FMU(i).Instance(j).fmuOutputVariableVariable(k).ValueReference = getValueReferenceByNameFMUOutputVariables(&NameCharArr[0], &tempLength, &FMU(i).Instance(j).Index);
 							//FMU( i ).Instance( j ).fmuOutputVariableVariable( k ).Name = getStringFromCharArray( NameCharArr );
 
 							if ( FMU( i ).Instance( j ).fmuOutputVariableVariable( k ).ValueReference == -999 ) {
@@ -1569,7 +1573,7 @@ namespace ExternalInterface {
 							// get the value reference by using the FMU name and the variable name.
 							auto tempNameArr( getCharArrayFromString( FMU( i ).Instance( j ).fmuOutputVariableActuator( k ).Name ) );
 							int tempLength( len( FMU( i ).Instance( j ).fmuOutputVariableActuator( k ).Name ) );
-							FMU( i ).Instance( j ).fmuOutputVariableActuator( k ).ValueReference = getValueReferenceByNameFMUOutputVariables( &tempNameArr[0], &tempLength, &FMU( i ).Instance( j ).Index );
+							FMU(i).Instance(j).fmuOutputVariableActuator(k).ValueReference = getValueReferenceByNameFMUOutputVariables(&tempNameArr[0], &tempLength, &FMU(i).Instance(j).Index);
 							//FMU( i ).Instance( j ).fmuOutputVariableActuator( k ).Name = getStringFromCharArray( tempNameArr );
 
 							if ( FMU( i ).Instance( j ).fmuOutputVariableActuator( k ).ValueReference == -999 ) {
@@ -1748,6 +1752,7 @@ namespace ExternalInterface {
 		static bool FirstCallDesignDays( true ); // Flag fo first call during warmup
 		static bool FirstCallWUp( true ); // Flag fo first call during warmup
 		static bool FirstCallTStep( true ); // Flag for first call during time stepping
+		static int fmiEndSimulation(0); // Flag to indicate end of simulation
 
 		Array1D_string Alphas( 5 );
 
@@ -1835,7 +1840,7 @@ namespace ExternalInterface {
 					StopExternalInterfaceIfError();
 
 					// Terminate all FMUs
-					TerminateResetFreeFMUImport();
+					TerminateResetFreeFMUImport(fmiEndSimulation);
 
 					// Reset the communication time step
 					tComm = tStart;
@@ -1889,7 +1894,7 @@ namespace ExternalInterface {
 				tComm = tStart;
 
 				// Terminate all FMUs
-				TerminateResetFreeFMUImport();
+				TerminateResetFreeFMUImport(fmiEndSimulation);
 
 				// Reinstantiate and reinitialize the FMUs
 				InstantiateInitializeFMUImport();
@@ -1934,7 +1939,8 @@ namespace ExternalInterface {
 					tComm += hStep;
 				} else {
 					// Terminate reset and free Slaves
-					TerminateResetFreeFMUImport();
+					fmiEndSimulation = 1;
+					TerminateResetFreeFMUImport(fmiEndSimulation);
 					for ( i = 1; i <= NumFMUObjects; ++i ) {
 						for ( j = 1; j <= FMU( i ).NumInstances; ++j ) {
 							// Deallocate used objects

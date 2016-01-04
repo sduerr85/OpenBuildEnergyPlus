@@ -79,6 +79,7 @@ public: // Types
 	using Super::isize2;
 	using Super::l1;
 	using Super::l2;
+	using Super::move_if;
 	using Super::operator ();
 	using Super::operator [];
 	using Super::resize;
@@ -101,19 +102,16 @@ public: // Types
 public: // Creation
 
 	// Default Constructor
-	inline
 	Array2D()
 	{}
 
 	// Copy Constructor
-	inline
 	Array2D( Array2D const & a ) :
 	 Super( a ),
 	 initializer_( a.initializer_ )
 	{}
 
 	// Move Constructor
-	inline
 	Array2D( Array2D && a ) NOEXCEPT :
 	 Super( std::move( a ) ),
 	 initializer_( a.initializer_ )
@@ -123,7 +121,6 @@ public: // Creation
 
 	// Copy Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	explicit
 	Array2D( Array2D< U > const & a ) :
 	 Super( a ),
@@ -132,7 +129,6 @@ public: // Creation
 
 	// Super Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	explicit
 	Array2D( Array2< U > const & a ) :
 	 Super( a )
@@ -140,13 +136,12 @@ public: // Creation
 
 	// Slice Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	explicit
 	Array2D( Array2S< U > const & a ) :
 	 Super( a )
 	{
 		setup_real();
-		size_type l( 0 );
+		size_type l( 0u );
 		for ( int i1 = 1, e1 = a.u1(); i1 <= e1; ++i1 ) {
 			for ( int i2 = 1, e2 = a.u2(); i2 <= e2; ++i2, ++l ) {
 				initialize( l, a( i1, i2 ) );
@@ -156,13 +151,12 @@ public: // Creation
 
 	// MArray Constructor Template
 	template< class A, typename M >
-	inline
 	explicit
 	Array2D( MArray2< A, M > const & a ) :
 	 Super( a )
 	{
 		setup_real();
-		size_type l( 0 );
+		size_type l( 0u );
 		for ( int i1 = 1, e1 = a.u1(); i1 <= e1; ++i1 ) {
 			for ( int i2 = 1, e2 = a.u2(); i2 <= e2; ++i2, ++l ) {
 				initialize( l, a( i1, i2 ) );
@@ -171,14 +165,12 @@ public: // Creation
 	}
 
 	// Sticky Initializer Value Constructor
-	inline
 	explicit
 	Array2D( Sticky< T > const & t ) :
 	 initializer_( t )
 	{}
 
 	// IndexRange Constructor
-	inline
 	Array2D( IR const & I1, IR const & I2 ) :
 	 Super( I1, I2 )
 	{
@@ -186,49 +178,43 @@ public: // Creation
 	}
 
 	// IndexRange + Initializer Value Constructor
-	inline
 	Array2D( IR const & I1, IR const & I2, T const & t ) :
 	 Super( I1, I2, InitializerSentinel() ),
 	 initializer_( t )
 	{
 		setup_real();
-		initialize();
+		initialize( t );
 	}
 
 	// IndexRange + Sticky Initializer Value Constructor
-	inline
 	Array2D( IR const & I1, IR const & I2, Sticky< T > const & t ) :
 	 Super( I1, I2, InitializerSentinel() ),
 	 initializer_( t )
 	{
 		setup_real();
-		initialize();
+		initialize( t );
 	}
 
 	// IndexRange + Sticky Initializer Value + Initializer Value Constructor
-	inline
 	Array2D( IR const & I1, IR const & I2, Sticky< T > const & t, T const & u ) :
 	 Super( I1, I2, InitializerSentinel() ),
 	 initializer_( t )
 	{
 		setup_real();
-		initialize();
-		operator =( u );
+		initialize( u );
 	}
 
 	// IndexRange + Initializer Function Constructor
-	inline
 	Array2D( IR const & I1, IR const & I2, InitializerFunction const & fxn ) :
 	 Super( I1, I2, InitializerSentinel() ),
 	 initializer_( fxn )
 	{
 		setup_real();
-		initialize();
+		fxn( *this );
 	}
 
 	// IndexRange + Initializer List Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, std::initializer_list< U > const l ) :
 	 Super( I1, I2, l )
 	{
@@ -237,54 +223,46 @@ public: // Creation
 
 	// IndexRange + Sticky Initializer + Initializer List Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, Sticky< T > const & t, std::initializer_list< U > const l ) :
-	 Super( I1, I2, InitializerSentinel() ),
+	 Super( I1, I2, l ),
 	 initializer_( t )
 	{
-		assert( size_ == l.size() );
 		setup_real();
-		initialize();
-		std::copy( l.begin(), l.end(), data_ );
 	}
 
 	// IndexRange + Super Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, Array2< U > const & a ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( conformable( a ) );
-		for ( size_type i = 0, e = size_; i < e; ++i ) {
+		for ( size_type i = 0; i < size_; ++i ) {
 			initialize( i, a[ i ] );
 		}
 	}
 
 	// IndexRange + Sticky Initializer + Super Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, Sticky< T > const & t, Array2< U > const & a ) :
 	 Super( I1, I2, InitializerSentinel() ),
 	 initializer_( t )
 	{
 		setup_real();
-		initialize();
 		assert( conformable( a ) );
-		for ( size_type i = 0, e = size_; i < e; ++i ) {
-			data_[ i ] = a[ i ];
+		for ( size_type i = 0; i < size_; ++i ) {
+			initialize( i, a[ i ] );
 		}
 	}
 
 	// IndexRange + Slice Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, Array2S< U > const & a ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( conformable( a ) );
-		size_type l( 0 );
+		size_type l( 0u );
 		for ( int i1 = 1, e1 = a.u1(); i1 <= e1; ++i1 ) {
 			for ( int i2 = 1, e2 = a.u2(); i2 <= e2; ++i2, ++l ) {
 				initialize( l, a( i1, i2 ) );
@@ -294,13 +272,12 @@ public: // Creation
 
 	// IndexRange + MArray Constructor Template
 	template< class A, typename M >
-	inline
 	Array2D( IR const & I1, IR const & I2, MArray2< A, M > const & a ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( conformable( a ) );
-		size_type l( 0 );
+		size_type l( 0u );
 		for ( int i1 = 1, e1 = a.u1(); i1 <= e1; ++i1 ) {
 			for ( int i2 = 1, e2 = a.u2(); i2 <= e2; ++i2, ++l ) {
 				initialize( l, a( i1, i2 ) );
@@ -310,46 +287,42 @@ public: // Creation
 
 	// Super + IndexRange Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( Array2< U > const & a, IR const & I1, IR const & I2 ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( conformable( a ) );
-		for ( size_type i = 0, e = size_; i < e; ++i ) {
+		for ( size_type i = 0; i < size_; ++i ) {
 			initialize( i, a[ i ] );
 		}
 	}
 
 	// IndexRange + Base Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( IR const & I1, IR const & I2, Array< U > const & a ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( size_ == a.size() );
-		for ( size_type i = 0, e = size_; i < e; ++i ) {
+		for ( size_type i = 0; i < size_; ++i ) {
 			initialize( i, a[ i ] );
 		}
 	}
 
 	// Base + IndexRange Constructor Template
 	template< typename U, class = typename std::enable_if< std::is_constructible< T, U >::value >::type >
-	inline
 	Array2D( Array< U > const & a, IR const & I1, IR const & I2 ) :
-	 Super( I1, I2 )
+	 Super( I1, I2, InitializerSentinel() )
 	{
 		setup_real();
 		assert( size_ == a.size() );
-		for ( size_type i = 0, e = size_; i < e; ++i ) {
+		for ( size_type i = 0; i < size_; ++i ) {
 			initialize( i, a[ i ] );
 		}
 	}
 
 	// Range Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	range( Array2< U > const & a )
@@ -359,7 +332,6 @@ public: // Creation
 
 	// Range + Initializer Value Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	range( Array2< U > const & a, T const & t )
@@ -369,7 +341,6 @@ public: // Creation
 
 	// Array Shape Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	shape( Array2< U > const & a )
@@ -379,7 +350,6 @@ public: // Creation
 
 	// Array Shape + Initializer Value Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	shape( Array2< U > const & a, T const & t )
@@ -389,7 +359,6 @@ public: // Creation
 
 	// Slice Shape Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	shape( Array2S< U > const & a )
@@ -399,7 +368,6 @@ public: // Creation
 
 	// Slice Shape + Initializer Value Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	shape( Array2S< U > const & a, T const & t )
@@ -409,7 +377,6 @@ public: // Creation
 
 	// MArray Shape Named Constructor Template
 	template< class A, typename M >
-	inline
 	static
 	Array2D
 	shape( MArray2< A, M > const & a )
@@ -419,7 +386,6 @@ public: // Creation
 
 	// MArray Shape + Initializer Value Named Constructor Template
 	template< class A, typename M >
-	inline
 	static
 	Array2D
 	shape( MArray2< A, M > const & a, T const & t )
@@ -429,7 +395,6 @@ public: // Creation
 
 	// One-Based Copy Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	one_based( Array2< U > const & a )
@@ -439,7 +404,6 @@ public: // Creation
 
 	// One-Based Slice Named Constructor Template
 	template< typename U >
-	inline
 	static
 	Array2D
 	one_based( Array2S< U > const & a )
@@ -449,7 +413,6 @@ public: // Creation
 
 	// One-Based MArray Named Constructor Template
 	template< class A, typename M >
-	inline
 	static
 	Array2D
 	one_based( MArray2< A, M > const & a )
@@ -458,7 +421,6 @@ public: // Creation
 	}
 
 	// Diagonal Matrix Named Constructor
-	inline
 	static
 	Array2D
 	diag( IR const & I, T const & d )
@@ -469,7 +431,6 @@ public: // Creation
 	}
 
 	// Identity Matrix Named Constructor
-	inline
 	static
 	Array2D
 	identity( IR const & I )
@@ -480,7 +441,6 @@ public: // Creation
 	}
 
 	// Destructor
-	inline
 	virtual
 	~Array2D()
 	{}
@@ -488,7 +448,6 @@ public: // Creation
 public: // Assignment: Array
 
 	// Copy Assignment
-	inline
 	Array2D &
 	operator =( Array2D const & a )
 	{
@@ -500,7 +459,6 @@ public: // Assignment: Array
 	}
 
 	// Move Assignment
-	inline
 	Array2D &
 	operator =( Array2D && a ) NOEXCEPT
 	{
@@ -518,7 +476,6 @@ public: // Assignment: Array
 	}
 
 	// Super Assignment
-	inline
 	Array2D &
 	operator =( Super const & a )
 	{
@@ -531,7 +488,6 @@ public: // Assignment: Array
 
 	// Super Assignment Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator =( Array2< U > const & a )
 	{
@@ -542,7 +498,6 @@ public: // Assignment: Array
 
 	// Slice Assignment Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator =( Array2S< U > const & a )
 	{
@@ -552,7 +507,6 @@ public: // Assignment: Array
 
 	// MArray Assignment Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	operator =( MArray2< A, M > const & a )
 	{
@@ -562,7 +516,6 @@ public: // Assignment: Array
 
 	// Initializer List Assignment Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator =( std::initializer_list< U > const l )
 	{
@@ -572,7 +525,6 @@ public: // Assignment: Array
 
 	// += Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator +=( Array2< U > const & a )
 	{
@@ -582,7 +534,6 @@ public: // Assignment: Array
 
 	// -= Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator -=( Array2< U > const & a )
 	{
@@ -592,7 +543,6 @@ public: // Assignment: Array
 
 	// *= Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator *=( Array2< U > const & a )
 	{
@@ -602,7 +552,6 @@ public: // Assignment: Array
 
 	// /= Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator /=( Array2< U > const & a )
 	{
@@ -612,7 +561,6 @@ public: // Assignment: Array
 
 	// += Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator +=( Array2S< U > const & a )
 	{
@@ -622,7 +570,6 @@ public: // Assignment: Array
 
 	// -= Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator -=( Array2S< U > const & a )
 	{
@@ -632,7 +579,6 @@ public: // Assignment: Array
 
 	// *= Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator *=( Array2S< U > const & a )
 	{
@@ -642,7 +588,6 @@ public: // Assignment: Array
 
 	// /= Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	operator /=( Array2S< U > const & a )
 	{
@@ -652,7 +597,6 @@ public: // Assignment: Array
 
 	// += MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	operator +=( MArray2< A, M > const & a )
 	{
@@ -662,7 +606,6 @@ public: // Assignment: Array
 
 	// -= MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	operator -=( MArray2< A, M > const & a )
 	{
@@ -672,7 +615,6 @@ public: // Assignment: Array
 
 	// *= MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	operator *=( MArray2< A, M > const & a )
 	{
@@ -682,7 +624,6 @@ public: // Assignment: Array
 
 	// /= MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	operator /=( MArray2< A, M > const & a )
 	{
@@ -694,7 +635,6 @@ public: // Assignment: Array: Logical
 
 	// &&= Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	and_equals( Array2< U > const & a )
 	{
@@ -704,7 +644,6 @@ public: // Assignment: Array: Logical
 
 	// ||= Array Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	or_equals( Array2< U > const & a )
 	{
@@ -714,7 +653,6 @@ public: // Assignment: Array: Logical
 
 	// &&= Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	and_equals( Array2S< U > const & a )
 	{
@@ -724,7 +662,6 @@ public: // Assignment: Array: Logical
 
 	// ||= Slice Template
 	template< typename U, class = typename std::enable_if< std::is_assignable< T&, U >::value >::type >
-	inline
 	Array2D &
 	or_equals( Array2S< U > const & a )
 	{
@@ -734,7 +671,6 @@ public: // Assignment: Array: Logical
 
 	// &&= MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	and_equals( MArray2< A, M > const & a )
 	{
@@ -744,7 +680,6 @@ public: // Assignment: Array: Logical
 
 	// ||= MArray Template
 	template< class A, typename M >
-	inline
 	Array2D &
 	or_equals( MArray2< A, M > const & a )
 	{
@@ -755,7 +690,6 @@ public: // Assignment: Array: Logical
 public: // Assignment: Value
 
 	// = Value
-	inline
 	Array2D &
 	operator =( T const & t )
 	{
@@ -764,7 +698,6 @@ public: // Assignment: Value
 	}
 
 	// += Value
-	inline
 	Array2D &
 	operator +=( T const & t )
 	{
@@ -773,7 +706,6 @@ public: // Assignment: Value
 	}
 
 	// -= Value
-	inline
 	Array2D &
 	operator -=( T const & t )
 	{
@@ -782,7 +714,6 @@ public: // Assignment: Value
 	}
 
 	// *= Value
-	inline
 	Array2D &
 	operator *=( T const & t )
 	{
@@ -791,7 +722,6 @@ public: // Assignment: Value
 	}
 
 	// /= Value
-	inline
 	Array2D &
 	operator /=( T const & t )
 	{
@@ -802,7 +732,6 @@ public: // Assignment: Value
 public: // Subscript
 
 	// Const Tail Starting at array( i1, i2 )
-	inline
 	Tail const
 	a( int const i1, int const i2 ) const
 	{
@@ -812,7 +741,6 @@ public: // Subscript
 	}
 
 	// Tail Starting at array( i1, i2 )
-	inline
 	Tail
 	a( int const i1, int const i2 )
 	{
@@ -824,7 +752,6 @@ public: // Subscript
 public: // Predicate
 
 	// Initializer Active?
-	inline
 	bool
 	initializer_active() const
 	{
@@ -834,7 +761,6 @@ public: // Predicate
 public: // Modifier
 
 	// Clear
-	inline
 	Array2D &
 	clear()
 	{
@@ -844,7 +770,6 @@ public: // Modifier
 	}
 
 	// Dimension by IndexRange
-	inline
 	Array2D &
 	allocate( IR const & I1, IR const & I2 )
 	{
@@ -854,7 +779,6 @@ public: // Modifier
 
 	// Dimension by Array Template
 	template< typename U >
-	inline
 	Array2D &
 	allocate( Array2< U > const & a )
 	{
@@ -863,7 +787,6 @@ public: // Modifier
 	}
 
 	// Deallocate
-	inline
 	Array2D &
 	deallocate()
 	{
@@ -873,7 +796,6 @@ public: // Modifier
 	}
 
 	// Dimension by IndexRange
-	inline
 	Array2D &
 	dimension( IR const & I1, IR const & I2 )
 	{
@@ -882,7 +804,6 @@ public: // Modifier
 	}
 
 	// Dimension by IndexRange + Initializer Value
-	inline
 	Array2D &
 	dimension( IR const & I1, IR const & I2, T const & t )
 	{
@@ -891,7 +812,6 @@ public: // Modifier
 	}
 
 	// Dimension by IndexRange + Initializer Function
-	inline
 	Array2D &
 	dimension( IR const & I1, IR const & I2, InitializerFunction const & fxn )
 	{
@@ -901,7 +821,6 @@ public: // Modifier
 
 	// Dimension by Array Template
 	template< typename U >
-	inline
 	Array2D &
 	dimension( Array2< U > const & a )
 	{
@@ -911,7 +830,6 @@ public: // Modifier
 
 	// Dimension by Array + Initializer Value Template
 	template< typename U >
-	inline
 	Array2D &
 	dimension( Array2< U > const & a, T const & t )
 	{
@@ -921,7 +839,6 @@ public: // Modifier
 
 	// Dimension by Array + Initializer Function Template
 	template< typename U >
-	inline
 	Array2D &
 	dimension( Array2< U > const & a, InitializerFunction const & fxn )
 	{
@@ -930,7 +847,6 @@ public: // Modifier
 	}
 
 	// Data-Preserving Redimension by IndexRange
-	inline
 	Array2D &
 	redimension( IR const & I1, IR const & I2 )
 	{
@@ -944,14 +860,13 @@ public: // Modifier
 		for ( int i1 = b1; i1 <= e1; ++i1, l_beg += z2_, m_beg += s2 ) {
 			l = l_beg; m = m_beg;
 			for ( int i2 = b2; i2 <= e2; ++i2, ++l, ++m ) {
-				o[ m ] = operator []( l );
+				o[ m ] = move_if( operator []( l ) );
 			}
 		}
 		return swap( o );
 	}
 
 	// Data-Preserving Redimension by IndexRange + Fill Value
-	inline
 	Array2D &
 	redimension( IR const & I1, IR const & I2, T const & t )
 	{
@@ -965,7 +880,7 @@ public: // Modifier
 		for ( int i1 = b1; i1 <= e1; ++i1, l_beg += z2_, m_beg += s2 ) {
 			l = l_beg; m = m_beg;
 			for ( int i2 = b2; i2 <= e2; ++i2, ++l, ++m ) {
-				o[ m ] = operator []( l );
+				o[ m ] = move_if( operator []( l ) );
 			}
 		}
 		return swap( o );
@@ -973,7 +888,6 @@ public: // Modifier
 
 	// Data-Preserving Redimension by Array Template
 	template< typename U >
-	inline
 	Array2D &
 	redimension( Array2< U > const & a )
 	{
@@ -987,7 +901,7 @@ public: // Modifier
 		for ( int i1 = b1; i1 <= e1; ++i1, l_beg += z2_, m_beg += s2 ) {
 			l = l_beg; m = m_beg;
 			for ( int i2 = b2; i2 <= e2; ++i2, ++l, ++m ) {
-				o[ m ] = operator []( l );
+				o[ m ] = move_if( operator []( l ) );
 			}
 		}
 		return swap( o );
@@ -995,7 +909,6 @@ public: // Modifier
 
 	// Data-Preserving Redimension by Array + Fill Value Template
 	template< typename U >
-	inline
 	Array2D &
 	redimension( Array2< U > const & a, T const & t )
 	{
@@ -1009,14 +922,13 @@ public: // Modifier
 		for ( int i1 = b1; i1 <= e1; ++i1, l_beg += z2_, m_beg += s2 ) {
 			l = l_beg; m = m_beg;
 			for ( int i2 = b2; i2 <= e2; ++i2, ++l, ++m ) {
-				o[ m ] = operator []( l );
+				o[ m ] = move_if( operator []( l ) );
 			}
 		}
 		return swap( o );
 	}
 
 	// Set Initializer Value
-	inline
 	Array2D &
 	initializer( T const & t )
 	{
@@ -1024,8 +936,15 @@ public: // Modifier
 		return *this;
 	}
 
+	// Set Initializer Sticky Value
+	Array2D &
+	initializer( Sticky< T > const & t )
+	{
+		initializer_ = t;
+		return *this;
+	}
+
 	// Set Initializer Function
-	inline
 	Array2D &
 	initializer( InitializerFunction const & fxn )
 	{
@@ -1034,7 +953,6 @@ public: // Modifier
 	}
 
 	// Clear Initializer
-	inline
 	Array2D &
 	initializer_clear()
 	{
@@ -1043,7 +961,6 @@ public: // Modifier
 	}
 
 	// Initialize
-	inline
 	Array2D &
 	initialize()
 	{
@@ -1058,7 +975,6 @@ public: // Modifier
 	}
 
 	// Swap
-	inline
 	Array2D &
 	swap( Array2D & v )
 	{
@@ -1071,7 +987,6 @@ public: // Modifier
 protected: // Functions
 
 	// Dimension by IndexRange
-	inline
 	void
 	dimension_assign( IR const & I1, IR const & I2 )
 	{
@@ -1081,7 +996,6 @@ protected: // Functions
 private: // Functions
 
 	// Set Up for IndexRange Constructor
-	inline
 	void
 	setup_real()
 	{
@@ -1089,7 +1003,6 @@ private: // Functions
 	}
 
 	// Size by IndexRange
-	inline
 	void
 	size_real( IR const & I1, IR const & I2 )
 	{
@@ -1102,7 +1015,6 @@ private: // Functions
 	}
 
 	// Dimension by IndexRange
-	inline
 	void
 	dimension_real( IR const & I1, IR const & I2 )
 	{
@@ -1112,7 +1024,6 @@ private: // Functions
 	}
 
 	// Dimension by IndexRange + Initializer Value
-	inline
 	void
 	dimension_real( IR const & I1, IR const & I2, T const & t )
 	{
@@ -1122,7 +1033,6 @@ private: // Functions
 	}
 
 	// Dimension by IndexRange + Initializer Function
-	inline
 	void
 	dimension_real( IR const & I1, IR const & I2, InitializerFunction const & fxn )
 	{
@@ -1350,7 +1260,7 @@ operator ==( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == b( i1, i2 ) );
@@ -1367,7 +1277,7 @@ operator !=( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != b( i1, i2 ) );
@@ -1384,7 +1294,7 @@ operator <( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < b( i1, i2 ) );
@@ -1401,7 +1311,7 @@ operator <=( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= b( i1, i2 ) );
@@ -1418,7 +1328,7 @@ operator >( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > b( i1, i2 ) );
@@ -1435,7 +1345,7 @@ operator >=( Array2S< T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= b( i1, i2 ) );
@@ -1452,7 +1362,7 @@ operator ==( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == b[ l ] );
@@ -1469,7 +1379,7 @@ operator !=( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != b[ l ] );
@@ -1486,7 +1396,7 @@ operator <( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < b[ l ] );
@@ -1503,7 +1413,7 @@ operator <=( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= b[ l ] );
@@ -1520,7 +1430,7 @@ operator >( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > b[ l ] );
@@ -1537,7 +1447,7 @@ operator >=( Array2S< T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= b[ l ] );
@@ -1607,7 +1517,7 @@ Array2D< bool >
 operator ==( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == t );
@@ -1623,7 +1533,7 @@ Array2D< bool >
 operator !=( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != t );
@@ -1639,7 +1549,7 @@ Array2D< bool >
 operator <( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < t );
@@ -1655,7 +1565,7 @@ Array2D< bool >
 operator <=( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= t );
@@ -1671,7 +1581,7 @@ Array2D< bool >
 operator >( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > t );
@@ -1687,7 +1597,7 @@ Array2D< bool >
 operator >=( Array2S< T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= t );
@@ -1760,7 +1670,7 @@ operator ==( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == b( i1, i2 ) );
@@ -1777,7 +1687,7 @@ operator !=( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != b( i1, i2 ) );
@@ -1794,7 +1704,7 @@ operator <( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < b( i1, i2 ) );
@@ -1811,7 +1721,7 @@ operator <=( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= b( i1, i2 ) );
@@ -1828,7 +1738,7 @@ operator >( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > b( i1, i2 ) );
@@ -1845,7 +1755,7 @@ operator >=( MArray2< A, T > const & a, MArray2< A, T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= b( i1, i2 ) );
@@ -1862,7 +1772,7 @@ operator ==( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == b[ l ] );
@@ -1879,7 +1789,7 @@ operator !=( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != b[ l ] );
@@ -1896,7 +1806,7 @@ operator <( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < b[ l ] );
@@ -1913,7 +1823,7 @@ operator <=( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= b[ l ] );
@@ -1930,7 +1840,7 @@ operator >( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > b[ l ] );
@@ -1947,7 +1857,7 @@ operator >=( MArray2< A, T > const & a, Array2< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= b[ l ] );
@@ -2018,7 +1928,7 @@ operator ==( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == b( i1, i2 ) );
@@ -2035,7 +1945,7 @@ operator !=( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != b( i1, i2 ) );
@@ -2052,7 +1962,7 @@ operator <( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < b( i1, i2 ) );
@@ -2069,7 +1979,7 @@ operator <=( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= b( i1, i2 ) );
@@ -2086,7 +1996,7 @@ operator >( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > b( i1, i2 ) );
@@ -2103,7 +2013,7 @@ operator >=( MArray2< A, T > const & a, Array2S< T > const & b )
 {
 	assert( conformable( a, b ) );
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= b( i1, i2 ) );
@@ -2173,7 +2083,7 @@ Array2D< bool >
 operator ==( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) == t );
@@ -2189,7 +2099,7 @@ Array2D< bool >
 operator !=( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) != t );
@@ -2205,7 +2115,7 @@ Array2D< bool >
 operator <( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) < t );
@@ -2221,7 +2131,7 @@ Array2D< bool >
 operator <=( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) <= t );
@@ -2237,7 +2147,7 @@ Array2D< bool >
 operator >( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) > t );
@@ -2253,7 +2163,7 @@ Array2D< bool >
 operator >=( MArray2< A, T > const & a, T const & t )
 {
 	Array2D< bool > r( Array2D< bool >::shape( a ) );
-	Array2D< bool >::size_type l( 0 );
+	Array2D< bool >::size_type l( 0u );
 	for ( int i1 = 1, e1 = r.u1(); i1 <= e1; ++i1 ) {
 		for ( int i2 = 1, e2 = r.u2(); i2 <= e2; ++i2, ++l ) {
 			r[ l ] = ( a( i1, i2 ) >= t );
@@ -2788,7 +2698,7 @@ transpose( Array2S< T > const & a )
 	int const as1( a.isize1() );
 	int const as2( a.isize2() );
 	Array2D< T > aT( as2, as1 );
-	size_type l( 0 );
+	size_type l( 0u );
 	for ( int i1 = 1; i1 <= as2; ++i1 ) {
 		for ( int i2 = 1; i2 <= as1; ++i2, ++l ) {
 			aT[ l ] = a( i2, i1 );
@@ -3073,7 +2983,7 @@ transpose( MArray2< A, T > const & a )
 	int const as1( a.isize1() );
 	int const as2( a.isize2() );
 	Array2D< T > aT( as2, as1 );
-	size_type l( 0 );
+	size_type l( 0u );
 	for ( int i1 = 1; i1 <= as2; ++i1 ) {
 		for ( int i2 = 1; i2 <= as1; ++i2, ++l ) {
 			aT[ l ] = a( i2, i1 );

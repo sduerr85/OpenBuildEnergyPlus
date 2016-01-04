@@ -84,6 +84,7 @@ namespace ObjexxFCL {
 				}
 			}
 		}
+		assert( legal() );
 		return *this;
 	}
 
@@ -110,6 +111,7 @@ namespace ObjexxFCL {
 			u_ = 0;
 			size_ = 0u;
 		}
+		assert( legal() );
 		return *this;
 	}
 
@@ -135,9 +137,9 @@ namespace ObjexxFCL {
 		return stream;
 	}
 
-	// Static Data Member Definitions
-	IndexRange::size_type const IndexRange::npos = static_cast< size_type >( -1 ); // Unbounded "size"
-	int const IndexRange::l_min = -( static_cast< int >( ( static_cast< unsigned int >( -1 ) / 2u ) ) - 1 ); // Min lower index
-	int const IndexRange::u_max = static_cast< int >( ( static_cast< unsigned int >( -1 ) / 2u ) ); // Max upper index
+// Static Data Member Definitions
+IndexRange::size_type const IndexRange::npos = static_cast< size_type >( -1 ); // Unbounded "size"
+int const IndexRange::l_min = -( static_cast< int >( ( static_cast< unsigned int >( -1 ) / 2u ) ) - 1 ); // Min lower index
+int const IndexRange::u_max = static_cast< int >( ( static_cast< unsigned int >( -1 ) / 2u ) ); // Max upper index
 
 } // ObjexxFCL
