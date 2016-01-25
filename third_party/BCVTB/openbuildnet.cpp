@@ -154,7 +154,7 @@ namespace EnergyPlus {
             bool initialize();
             
             MQTTNodeEPlus(const std::string& t_name, const std::string& t_ws):
-            MQTTNodeBase(t_name, t_ws), m_double_input("in", &mqtt_client), m_double_output("out", &mqtt_client)
+            MQTTNodeBase(t_name, t_ws), m_double_input("in"), m_double_output("out")
             { }
             
             void handleEPlusSignal();       ///< Handle some signals from EnergyPlus

@@ -350,6 +350,60 @@ namespace ExternalInterface {
 			}
 		}
 	}
+    
+    void
+    StopExternalInterface()
+    {
+        // SUBROUTINE INFORMATION:
+        //       AUTHOR         Truong X. Nghiem
+        //       DATE WRITTEN   25Jan2016
+        //       MODIFIED       na
+        //       RE-ENGINEERED  na
+        
+        // PURPOSE OF THIS SUBROUTINE:
+        // This subroutine gracefully force-stops the ExternalInterface.
+        // It is different from StopExternalInterfaceIfError() in that it stops
+        // the simulation even if the ErrorFlag is false, and it minimizes error reporting.
+        // It sends an appropriate message to the ExternalInterface
+        // and then throw an exception to stop EnergyPlus.
+        // See ShowFatalError() and AbortEnergyPlus()
+        
+        // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+        int retVal; // Return value, needed to catch return value of function call
+        int const flag1( -10 );
+        int const flag2( -20 );
+        
+        if ( ( NumExternalInterfacesBCVTB != 0 ) || ( NumExternalInterfacesFMUExport != 0 ) ) {
+            if (OBNisRunning) {
+                // Stop OBN
+                signalOBN_EXIT();
+            }
+            
+            // Check if the socket is open
+            if ( socketFD >= 0 ) {
+                // Socket is open
+                if ( simulationStatus == 1 ) {
+                    retVal = sendclientmessage( &socketFD, &flag1 );
+                } else {
+                    retVal = sendclientmessage( &socketFD, &flag2 );
+                }
+            }
+            if ( ErrorsFound ) {
+                ShowFatalError( "Error in ExternalInterface: Check EnergyPlus *.err file." );
+            }  else {
+                // Force stop by an exception
+                throw std::runtime_error( "Simulation is forced to terminate by ExternalInterface." );
+            }
+        }
+        if ( NumExternalInterfacesFMUImport != 0 ) {
+            if ( ErrorsFound ) {
+                ShowFatalError( "ExternalInterface/StopExternalInterface: Error in ExternalInterface: Check EnergyPlus *.err file." );
+            } else {
+                // Force stop by an exception
+                throw std::runtime_error( "Simulation is forced to terminate by ExternalInterface." );
+            }
+        }
+    }
 
 	void
 	CloseSocket( int const FlagToWriteToSocket )
@@ -2133,13 +2187,15 @@ namespace ExternalInterface {
 				gio::write( retValCha, Format_1000 ) << flaRea;
 				if ( haveExternalInterfaceBCVTB ) {
                     if (quitIfOBNTerminates) {
-                        ShowSevereError( "ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours and will terminate the simulation." );
+                        // Stop the simulation, but this should not be an error.
+                        ShowWarningError( "ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours and will terminate the simulation." );
                         continueSimulation = false;
-                        ErrorsFound = true;
+                        //ErrorsFound = true;
+                        StopExternalInterface();  // Request to stop the simulation because end of OBN simulation
                     } else {
                         ShowWarningError("ExternalInterface: Received end of simulation flag at time = " + TrimSigDigits( preSimTim / 3600, 2 ) + " hours but will continue simulation with last known inputs.");
                     }
-                    StopExternalInterfaceIfError();
+                    //StopExternalInterfaceIfError();
 				}
 			}
 
