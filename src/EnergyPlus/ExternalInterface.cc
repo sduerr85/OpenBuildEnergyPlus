@@ -662,8 +662,8 @@ namespace ExternalInterface {
                         DisplayString( "openBuildNet started successfully." );
                         
                         // Wait for the OBN to start simulation (INIT)
-                        setOBNTimeout(30);      // Set timeout; should be -1 by default and if the config file sets the timeout, set it here
                         auto obn_signal = waitforOBNSignal();
+                        resetOBNSignal();
                         ErrorsFound = (obn_signal != EPSIG_START);
                         if (obn_signal == EPSIG_TIMEOUT) {
                             // Timeout error
@@ -674,7 +674,6 @@ namespace ExternalInterface {
                         
                         // If error, Signal OBN that there was an error and you should quit;
                         // otherwise, everything is fine, we've done initializing
-                        resetOBNSignal();
                         signalOBN(ErrorsFound?OBNSIG_EXIT:OBNSIG_DONE);
                         OBNisRunning = !ErrorsFound;
                     } else {

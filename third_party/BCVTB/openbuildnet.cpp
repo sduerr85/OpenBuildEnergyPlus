@@ -24,7 +24,9 @@ using namespace OBNnode;
 namespace EnergyPlus {
     namespace ExternalInterface {
         
-        bool quitIfOBNTerminates = false;
+        // Some options
+        bool quitIfOBNTerminates = false;   ///< whether E+ should quit if OBN terminates
+        int default_obn_timeout = -1;   ///< The default timeout value
         
         EPlusSignalToOBN eplus_signal_to_obn = OBNSIG_NONE;       ///< The signal from E+ to OBN.
         std::mutex eplus_signal_to_obn_mutex;       ///< Mutex to access the signal
@@ -33,8 +35,6 @@ namespace EnergyPlus {
         OBNSignalToEPlus obn_signal_to_eplus = EPSIG_NONE;       ///< The signal from OBN to E+.
         std::mutex obn_signal_to_eplus_mutex;       ///< Mutex to access the signal
         std::condition_variable obn_signal_to_eplus_cond;   ///< Condition variable to wait for the signal
-        
-        int default_obn_timeout = -1;   ///< The default timeout value
         
         /** Set the signal from OBN to E+. */
         void signalEPlus(OBNSignalToEPlus sig) {
@@ -339,17 +339,41 @@ namespace EnergyPlus {
                         }
                     }
                     
-                    // The third line: quitIfOBNStops
-                    if (success && !configfile.eof()) {
+                    // The remaining lines are optional
+                    while (success && !configfile.eof()) {
+                        // Get the next line
                         success = !std::getline(configfile, oneline).fail();
                         if (success) {
-                            std::string theOption = OBNsim::Utils::toLower(OBNsim::Utils::trim(oneline));
+                            // Extract the first word, which is the option name
+                            auto pos = oneline.find_first_of(spacechars);
+                            std::string theOption(oneline), theRest;
+
+                            if (pos != std::string::npos) {
+                                theOption = oneline.substr(0, pos);
+                                if (oneline.size() >= pos+2) {
+                                    theRest = OBNsim::Utils::trim(oneline.substr(pos+1));
+                                }
+                            }
+                            theOption = OBNsim::Utils::toLower(OBNsim::Utils::trim(theOption));
+                            
+                            // Check which option we have
                             if (theOption == "quitifobnstops") {
+                                // quitIfOBNStops: quit E+ if OBN stops (default is false).
                                 quitIfOBNTerminates = true;
+                            } else if (theOption == "timeout") {
+                                // Set the default timeout value (default is -1, i.e. wait indefinitely)
+                                // This is an integer as the number of seconds; if it's absent, it won't change the timeout
+                                if (!theRest.empty()) {
+                                    setOBNTimeout(atoi(theRest.c_str()));
+                                }
+                            } else {
+                                // Unknown option -> for now we just ignore it but we should instead print out some error
                             }
                         }
+                        success = true;
                     }
                 }
+
                 if (!success) {
                     return false;
                 }
