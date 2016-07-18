@@ -150,6 +150,8 @@ namespace EnergyPlus {
                 waitforEPlusSignal();           // Wait for the ACK to ensure that EnergyPlus has registered the request
             }
             
+            bool m_duringUpdateX = false;  // true if the node is currently processing its UpdateX event
+            
         public:
             bool initialize();
             
@@ -171,6 +173,15 @@ namespace EnergyPlus {
                 return nDbl;
             }
             
+            /** Write the output values to the output port and send them immediately.
+             \return negative value if error; otherwise the number of values sent.
+             */
+            int sendOutputValues(std::size_t nDbl, double dblVals[]) {
+                int v = setOutputValues(nDbl, dblVals);
+                m_double_output.sendSync();
+                return v;
+            }
+            
             /** Read the input values from the input port.
              The arrays to write the values to are already allocated by EnergyPlus.
              \return non-zero value if error.
@@ -190,6 +201,19 @@ namespace EnergyPlus {
                 return 0;
             }
             
+            bool isDuringUpdateX() const { return m_duringUpdateX; }
+            
+            void setDuringUpdateX() { m_duringUpdateX = true; }
+            
+            /** Reset m_duringUpdateX and send ACK signal to OBN. */
+            void finishUpdateX() {
+                if (m_duringUpdateX) {
+                    m_duringUpdateX = false;
+                    EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
+                }
+            }
+            
+            
             /** \brief Callback for UPDATE_Y event */
             virtual void onUpdateY(updatemask_t m) override;
             
@@ -197,7 +221,10 @@ namespace EnergyPlus {
             virtual void onUpdateX(updatemask_t m) override;
             
             /** \brief Callback to initialize the node before each simulation. */
-            virtual void onInitialization() override;
+            virtual int64_t onInitialization() override;
+            
+            /** \brief Callback to restart the simulation, not allowed in EnergyPlus. */
+            virtual int64_t onRestart() override { return 1; }
             
             /** \brief Callback before the node's current simulation is terminated. */
             virtual void onTermination() override;
@@ -441,7 +468,7 @@ namespace EnergyPlus {
                 return false;
             }
             
-            // Add the output port to the nod
+            // Add the output port to the node
             return addInput(&m_double_input) && addOutput(&m_double_output);
         }
         
@@ -466,13 +493,16 @@ namespace EnergyPlus {
         }
         
         /** \brief Callback to initialize the node before each simulation. */
-        void MQTTNodeEPlus::onInitialization() {
+        int64_t MQTTNodeEPlus::onInitialization() {
             signalEPlus(EPSIG_START);       // Forward the signal to EPlus
             auto sig = waitforEPlusSignal();
             // Only reset the signal if the update was done properly, otherwise let the main function handle the signal
             if (sig == OBNSIG_DONE) {
                 resetEPlusSignal();
             }
+            m_duringUpdateX = false;
+            
+            return 0;
         }
         
         /** \brief Callback before the node's current simulation is terminated. */
@@ -555,6 +585,15 @@ namespace EnergyPlus {
             
             int retVal = 0;
             
+            // If currently during an UPDATE_X, send the values out to OBN then ACK that UPDATE_X has completed
+            if (EnergyPlus::ExternalInterface::obn_thread->m_obnnode.isDuringUpdateX()) {
+                retVal = EnergyPlus::ExternalInterface::obn_thread->m_obnnode.sendOutputValues(*nDblWri, dblValWri);
+                EnergyPlus::ExternalInterface::obn_thread->m_obnnode.finishUpdateX();
+                if (retVal < 0) {
+                    return retVal;
+                }
+            }
+            
             // Wait for UPDATE_Y from OBN before sending out the values
             auto sig = EnergyPlus::ExternalInterface::waitforOBNSignal();
             EnergyPlus::ExternalInterface::resetOBNSignal();
@@ -583,8 +622,9 @@ namespace EnergyPlus {
                 
                 // The flag flaRea is already set at the beginning
                 
-                EnergyPlus::ExternalInterface::signalOBN(EnergyPlus::ExternalInterface::OBNSIG_DONE);   // ACK to OBN
-                
+                // Set the flag that the node is currently during UPDATE_X and not yet ACK to OBN
+                // Note that we don't ACK here but wait for E+ to update its states to the next time step, then immediately send the outputs to OBN before ACK.
+                EnergyPlus::ExternalInterface::obn_thread->m_obnnode.setDuringUpdateX();
             }
             return retVal;
         }
