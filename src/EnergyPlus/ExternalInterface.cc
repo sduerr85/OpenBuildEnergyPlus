@@ -4,7 +4,7 @@ extern "C" {
 #include <BCVTB/utilSocket.h>
 #include <BCVTB/utilXml.h>
 }
-
+#include <BCVTB/configfile.h>
 
 // C++ Headers
 #include <string>
