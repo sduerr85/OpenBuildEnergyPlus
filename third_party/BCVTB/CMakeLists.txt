@@ -12,6 +12,8 @@ utilXml.c
 utilXml.h
 openbuildnet.h
 openbuildnet.cpp
+configfile.h
+configfile.cpp
 ) 
 
 IF( WIN32 )
