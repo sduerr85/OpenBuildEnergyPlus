@@ -1,6 +1,8 @@
 clear all
 
-receiver = OBNNode('receiver', 'obnep', 'mqtt');    % The OBN node
+MQTTServer = '';
+
+receiver = OBNNode('receiver', 'obnep', 'mqtt', MQTTServer);    % The OBN node
 receiver.createInputPort('u', 'v', 'double');   % Input from E+
 receiver.createOutputPort('y', 'v', 'double');  % Output to E+
 
