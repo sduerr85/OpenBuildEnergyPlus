@@ -62,9 +62,10 @@ extern "C" {
 #include <BCVTB/utilSocket.h>
 #include <BCVTB/utilXml.h>
 }
+#include <BCVTB/configfile.h>
 
-
-// C++ Headers
+// C & C++ Headers
+#include <stdlib.h>
 #include <string>
 
 // ObjexxFCL Headers
@@ -125,7 +126,7 @@ namespace ExternalInterface {
 	std::string FMURootWorkingFolder; // FMU root working folder
 
 	// MODULE PARAMETER DEFINITIONS:
-	int const maxVar( 1024 ); // Maximum number of variables to be exchanged
+	int maxVar( 1024 ); // Maximum number of variables to be exchanged
 	int const maxErrMsgLength( 10000 ); // Maximum error message length from xml schema validation
 	int const indexSchedule( 1 ); // Index for schedule in inpVarTypes
 	int const indexVariable( 2 ); // Index for variable in inpVarTypes
@@ -206,6 +207,17 @@ namespace ExternalInterface {
 		int retValErrMsg;
 
 		if ( GetInputFlag ) {
+            // Adjust maxVar if the environment variable EPLUS_EXTINT_MAXVAR is set
+            char* EPLUS_EXTINT_MAXVAR = getenv("EPLUS_EXTINT_MAXVAR");
+            if (NULL != EPLUS_EXTINT_MAXVAR){
+                int new_maxVar = strtol(EPLUS_EXTINT_MAXVAR, (char **)NULL, 10);
+                if (ERANGE == errno || new_maxVar <= 0) {
+                    ShowWarningError("EPLUS_EXTINT_MAXVAR contains an invalid number; will keep the default maximal number of external interface variables.");
+                } else {
+                    maxVar = new_maxVar;
+                }
+            }
+
 			GetExternalInterfaceInput();
 			GetInputFlag = false;
 		}
