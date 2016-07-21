@@ -1,5 +1,5 @@
 # Include CMake code for OBN node.C++
-SET(OBN_MAIN_DIR ~/work/working/obn)
+SET(OBN_MAIN_DIR ~/work/working/obn CACHE PATH "Path to OBN source code")
 
 # Include the common CMake code for node.C++
 INCLUDE(${OBN_MAIN_DIR}/nodecpp/CMakeCommon.txt)
