@@ -67,6 +67,8 @@ main( int argc, const char * argv[] )
     printf("|  Modified version of EnergyPlus for openBuildNet  |\n");
     printf("+---------------------------------------------------+\n\n");
     
+	// the following line is only needed when debugging issues related to NaN in Visual Studio. See https://github.com/NREL/EnergyPlus/wiki/Debugging-Tips
+	// unsigned int fp_control_state = _controlfp( _EM_INEXACT, _MCW_EM );
 	ProcessArgs( argc, argv );
 	EnergyPlusPgm();
 }

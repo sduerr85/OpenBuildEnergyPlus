@@ -243,8 +243,18 @@ namespace EMSManager {
 		cCurrentModuleObject = "EnergyManagementSystem:ConstructionIndexVariable";
 		NumEMSConstructionIndices = GetNumObjectsFound( cCurrentModuleObject );
 
+		cCurrentModuleObject = "Output:EnergyManagementSystem";
+		int NumOutputEMSs = GetNumObjectsFound( cCurrentModuleObject );
+
 		// added for FMU
-		if ( ( NumSensors + numActuatorsUsed + NumProgramCallManagers + NumErlPrograms + NumErlSubroutines + NumUserGlobalVariables + NumEMSOutputVariables + NumEMSCurveIndices + NumExternalInterfaceGlobalVariables + NumExternalInterfaceActuatorsUsed + NumEMSConstructionIndices + NumEMSMeteredOutputVariables + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportGlobalVariables + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportGlobalVariables ) > 0 ) {
+		if ( ( NumSensors + numActuatorsUsed + NumProgramCallManagers + NumErlPrograms
+			+ NumErlSubroutines + NumUserGlobalVariables + NumEMSOutputVariables
+			+ NumEMSCurveIndices + NumExternalInterfaceGlobalVariables + NumExternalInterfaceActuatorsUsed
+			+ NumEMSConstructionIndices + NumEMSMeteredOutputVariables
+			+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitImportGlobalVariables
+			+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitExportGlobalVariables + NumOutputEMSs) > 0 ) {
 			AnyEnergyManagementSystemInModel = true;
 		} else {
 			AnyEnergyManagementSystemInModel = false;
@@ -276,7 +286,7 @@ namespace EMSManager {
 	void
 	ManageEMS(
 		int const iCalledFrom, // indicates where subroutine was called from, parameters in DataGlobals.
-		bool & anyProgramRan, // true if any Erl programs ran for this call 
+		bool & anyProgramRan, // true if any Erl programs ran for this call
 		Optional_int_const ProgramManagerToRun // specific program manager to run
 	)
 	{
@@ -373,7 +383,10 @@ namespace EMSManager {
 		if ( ! anyProgramRan ) return;
 
 		// Set actuated variables with new values
-		for ( ActuatorUsedLoop = 1; ActuatorUsedLoop <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorUsedLoop ) {
+		for ( ActuatorUsedLoop = 1; ActuatorUsedLoop <= numActuatorsUsed
+			+ NumExternalInterfaceActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorUsedLoop ) {
 			ErlVariableNum = EMSActuatorUsed( ActuatorUsedLoop ).ErlVariableNum;
 			if ( ! ( ErlVariableNum > 0 ) ) continue; // this can happen for good reason during sizing
 
@@ -692,6 +705,22 @@ namespace EMSManager {
 		GetObjectDefMaxArgs( cCurrentModuleObject, TotalArgs, NumAlphas, NumNums );
 		MaxNumNumbers = max( MaxNumNumbers, NumNums );
 		MaxNumAlphas = max( MaxNumAlphas, NumAlphas );
+		cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitImport:To:Variable";
+		GetObjectDefMaxArgs(cCurrentModuleObject, TotalArgs, NumAlphas, NumNums);
+		MaxNumNumbers = max(MaxNumNumbers, NumNums);
+		MaxNumAlphas = max(MaxNumAlphas, NumAlphas);
+		cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitImport:To:Actuator";
+		GetObjectDefMaxArgs(cCurrentModuleObject, TotalArgs, NumAlphas, NumNums);
+		MaxNumNumbers = max(MaxNumNumbers, NumNums);
+		MaxNumAlphas = max(MaxNumAlphas, NumAlphas);
+		cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitExport:To:Variable";
+		GetObjectDefMaxArgs(cCurrentModuleObject, TotalArgs, NumAlphas, NumNums);
+		MaxNumNumbers = max(MaxNumNumbers, NumNums);
+		MaxNumAlphas = max(MaxNumAlphas, NumAlphas);
+		cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitExport:To:Actuator";
+		GetObjectDefMaxArgs(cCurrentModuleObject, TotalArgs, NumAlphas, NumNums);
+		MaxNumNumbers = max(MaxNumNumbers, NumNums);
+		MaxNumAlphas = max(MaxNumAlphas, NumAlphas);
 		//  cCurrentModuleObject = 'EnergyManagementSystem:Sensor'
 		//  CALL GetObjectDefMaxArgs(cCurrentModuleObject,TotalArgs,NumAlphas,NumNums)
 		//  MaxNumNumbers=MAX(MaxNumNumbers,NumNums)
@@ -738,6 +767,7 @@ namespace EMSManager {
 					} else {
 						VariableNum = NewEMSVariable( cAlphaArgs( 1 ), 0 );
 						Sensor( SensorNum ).VariableNum = VariableNum;
+						ErlVariable( VariableNum ).Value.initialized = true; 
 					}
 				}
 
@@ -773,22 +803,40 @@ namespace EMSManager {
 
 		cCurrentModuleObject = "EnergyManagementSystem:Actuator";
 
-		if ( numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed > 0 ) {
-			EMSActuatorUsed.allocate( numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed );
-			for ( ActuatorNum = 1; ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorNum ) {
+		if ( numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed > 0 ) {
+			EMSActuatorUsed.allocate( numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed );
+			for ( ActuatorNum = 1; ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorNum ) {
 				// If we process the ExternalInterface actuators, all we need to do is to change the
 				// name of the module object, and shift the ActuatorNum in GetObjectItem
 				if ( ActuatorNum <= numActuatorsUsed ) {
-					GetObjectItem( cCurrentModuleObject, ActuatorNum, cAlphaArgs, NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
+					GetObjectItem( cCurrentModuleObject, ActuatorNum, cAlphaArgs, NumAlphas,
+						rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
 				} else if ( ActuatorNum > numActuatorsUsed && ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed ) {
 					cCurrentModuleObject = "ExternalInterface:Actuator";
-					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed, cAlphaArgs, NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
-				} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed && ActuatorNum <= ( numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed ) ) {
+					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed, cAlphaArgs,
+						NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks,
+						lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
+				} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+					&& ActuatorNum <= ( numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+					+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed ) ) {
 					cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitImport:To:Actuator";
-					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed - NumExternalInterfaceActuatorsUsed, cAlphaArgs, NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
-				} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed && ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed ) {
+					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed
+						- NumExternalInterfaceActuatorsUsed, cAlphaArgs, NumAlphas, rNumericArgs,
+						NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
+				} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+					+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed && ActuatorNum <= numActuatorsUsed
+					+ NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+					+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed ) {
 					cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitExport:To:Actuator";
-					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed - NumExternalInterfaceActuatorsUsed - NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed, cAlphaArgs, NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks, cAlphaFieldNames, cNumericFieldNames );
+					GetObjectItem( cCurrentModuleObject, ActuatorNum - numActuatorsUsed
+						- NumExternalInterfaceActuatorsUsed - NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed,
+						cAlphaArgs, NumAlphas, rNumericArgs, NumNums, IOStat, lNumericFieldBlanks, lAlphaFieldBlanks,
+						cAlphaFieldNames, cNumericFieldNames );
 				}
 
 				IsNotOK = false;
@@ -814,6 +862,8 @@ namespace EMSManager {
 					} else {
 						VariableNum = NewEMSVariable( cAlphaArgs( 1 ), 0 );
 						EMSActuatorUsed( ActuatorNum ).ErlVariableNum = VariableNum;
+						//initialize Erl variable for actuator to null
+						ErlVariable( VariableNum ).Value = Null;
 						if ( ActuatorNum > numActuatorsUsed ) {
 							// Initialize variables for the ExternalInterface variables
 							ExternalInterfaceInitializeErlVariable( VariableNum, SetErlValueNumber( rNumericArgs( 1 ) ), lNumericFieldBlanks( 1 ) );
@@ -1133,16 +1183,24 @@ namespace EMSManager {
 		} // SensorNum
 
 		// added for FMU
-		for ( ActuatorNum = 1; ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorNum ) {
+		for ( ActuatorNum = 1; ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+			+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed; ++ActuatorNum ) {
 			// If we process the ExternalInterface actuators, all we need to do is to change the
 
 			if ( ActuatorNum <= numActuatorsUsed ) {
 				cCurrentModuleObject = "EnergyManagementSystem:Actuator";
 			} else if ( ActuatorNum > numActuatorsUsed && ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed ) {
 				cCurrentModuleObject = "ExternalInterface:Actuator";
-			} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed && ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed ) {
+			} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				&& ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed ) {
 				cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitImport:To:Actuator";
-			} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed && ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed + NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed ) {
+			} else if ( ActuatorNum > numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+				&& ActuatorNum <= numActuatorsUsed + NumExternalInterfaceActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitImportActuatorsUsed
+				+ NumExternalInterfaceFunctionalMockupUnitExportActuatorsUsed ) {
 				cCurrentModuleObject = "ExternalInterface:FunctionalMockupUnitExport:To:Actuator";
 			}
 
@@ -2077,6 +2135,23 @@ namespace EMSManager {
 
 	}
 
+	void
+	checkForUnusedActuatorsAtEnd()
+	{
+		// call at end of simulation to check if any of the user's actuators were never initialized.  
+		// Could be a mistake we want to help users catch // Issue #4404.
+		for ( int actuatorUsedLoop = 1; actuatorUsedLoop <= numActuatorsUsed; ++actuatorUsedLoop ) {
+			if ( ! ErlVariable( EMSActuatorUsed( actuatorUsedLoop ).ErlVariableNum ).Value.initialized ) {
+				ShowWarningError( "checkForUnusedActuatorsAtEnd: Unused EMS Actuator detected, suggesting possible unintended programming error or spelling mistake." );
+				ShowContinueError( "Check Erl programs related to EMS actuator variable name = " + EMSActuatorUsed( actuatorUsedLoop ).Name );
+				ShowContinueError( "EMS Actuator type name = " + EMSActuatorUsed( actuatorUsedLoop ).ComponentTypeName );
+				ShowContinueError( "EMS Actuator unique component name = " + EMSActuatorUsed( actuatorUsedLoop ).UniqueIDName );
+				ShowContinueError( "EMS Actuator control type = " + EMSActuatorUsed( actuatorUsedLoop ).ControlTypeName );
+			}
+		}
+	
+	}
+	
 } // EMSManager
 
 //Moved these setup EMS actuator routines out of module to solve circular use problems between

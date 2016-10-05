@@ -101,8 +101,19 @@ using namespace ObjexxFCL;
 
 namespace EnergyPlus {
 
+	TEST_F( EnergyPlusFixture, BranchNodeErrorCheck_SingleNode ) {
+		bool errFlag = false;
+		RegisterNodeConnection( 1, "BadNode", "Type1", "Object1", "ZoneNode", 1, false, errFlag );
+		bool ErrorsFound = false;
+
+		CheckNodeConnections( ErrorsFound );
+
+		EXPECT_FALSE( errFlag ); //Node should register without error
+		EXPECT_FALSE( ErrorsFound ); //Node check should not fail on Check 10 -- zone node name must be unique
+	}
+
 	TEST_F( EnergyPlusFixture, BranchNodeErrorCheck11Test ) {
-		bool errFlag = false; 
+		bool errFlag = false;
 		RegisterNodeConnection(1, "BadNode", "Type1", "Object1", "ZoneNode", 1, false, errFlag);
 		RegisterNodeConnection(2, "GoodNode", "Type2", "Object2", "Sensor", 1, false, errFlag);
 		RegisterNodeConnection(1, "BadNode", "Type3", "Object3", "ZoneNode", 1, false , errFlag);
@@ -110,7 +121,7 @@ namespace EnergyPlus {
 		bool ErrorsFound = false;
 
 		CheckNodeConnections(ErrorsFound);
-		std::string const error_string = delimited_string( { 
+		std::string const error_string = delimited_string( {
 		"   ** Severe  ** Node Connection Error, Node Name=\"BadNode\", The same zone node appears more than once.",
 		"   **   ~~~   ** Reference Object=TYPE1, Object Name=Object1",
 		"   **   ~~~   ** Reference Object=TYPE3, Object Name=Object3"
@@ -119,6 +130,7 @@ namespace EnergyPlus {
 		EXPECT_TRUE( compare_err_stream( error_string, true ) );
 		EXPECT_TRUE( ErrorsFound ); //Node check will fail on Check 11 -- zone node name must be unique
 	}
+
 	TEST_F( EnergyPlusFixture, BranchNodeConnections_ReturnPlenumNodeCheckFailure )
 	{
 		// AUTHOR: R. Raustad, FSEC
@@ -742,28 +754,23 @@ namespace EnergyPlus {
 
 			"Branch,",
 			"  DOAS Main Branch,        !- Name",
-			"  autosize,                !- Maximum Flow Rate {m3/s}",
 			"  ,                        !- Pressure Drop Curve Name",
 			"  AirLoopHVAC:OutdoorAirSystem,  !- Component 1 Object Type",
 			"  DOAS OA System,          !- Component 1 Name",
 			"  DOAS Air Loop Inlet,     !- Component 1 Inlet Node Name",
 			"  DOAS Mixed Air Outlet,   !- Component 1 Outlet Node Name",
-			"  Passive,                 !- Component 1 Branch Control Type",
 			"  CoilSystem:Cooling:DX,   !- Component 2 Object Type",
 			"  DOAS Cooling Coil,       !- Component 2 Name",
 			"  DOAS Mixed Air Outlet,   !- Component 2 Inlet Node Name",
 			"  DOAS Cooling Coil Outlet,!- Component 2 Outlet Node Name",
-			"  Passive,                 !- Component 2 Branch Control Type",
-			"  Coil:Heating:Gas,        !- Component 2 Object Type",
+			"  Coil:Heating:Fuel,        !- Component 2 Object Type",
 			"  DOAS Heating Coil,       !- Component 2 Name",
 			"  DOAS Cooling Coil Outlet,  !- Component 2 Inlet Node Name",
 			"  DOAS Heating Coil Outlet,!- Component 2 Outlet Node Name",
-			"  Passive,                 !- Component 2 Branch Control Type",
 			"  Fan:VariableVolume,      !- Component 3 Object Type",
 			"  DOAS Supply Fan,         !- Component 3 Name",
 			"  DOAS Heating Coil Outlet,!- Component 3 Inlet Node Name",
-			"  DOAS Supply Fan Outlet,  !- Component 3 Outlet Node Name",
-			"  Active;                  !- Component 3 Branch Control Type",
+			"  DOAS Supply Fan Outlet;  !- Component 3 Outlet Node Name",
 
 			"AirLoopHVAC:SupplyPath,",
 			"  DOAS Supply Path,        !- Name",
@@ -863,9 +870,10 @@ namespace EnergyPlus {
 			"	0.0,                   !- Crankcase Heater Capacity",
 			"	10.0;                  !- Maximum Outdoor DryBulb Temperature for Crankcase Heater Operation",
 
-			"Coil:Heating:Gas,",
+			"Coil:Heating:Fuel,",
 			"  DOAS Heating Coil,       !- Name",
 			"  AvailSched,              !- Availability Schedule Name",
+			"  Gas,                     !- Fuel Type",
 			"  0.8,                     !- Gas Burner Efficiency",
 			"  autosize,                !- Nominal Capacity {W}",
 			"  DOAS Cooling Coil Outlet,  !- Air Inlet Node Name",
@@ -1746,28 +1754,23 @@ namespace EnergyPlus {
 
 			"Branch,",
 			"  DOAS Main Branch,        !- Name",
-			"  autosize,                !- Maximum Flow Rate {m3/s}",
 			"  ,                        !- Pressure Drop Curve Name",
 			"  AirLoopHVAC:OutdoorAirSystem,  !- Component 1 Object Type",
 			"  DOAS OA System,          !- Component 1 Name",
 			"  DOAS Air Loop Inlet,     !- Component 1 Inlet Node Name",
 			"  DOAS Mixed Air Outlet,   !- Component 1 Outlet Node Name",
-			"  Passive,                 !- Component 1 Branch Control Type",
 			"  CoilSystem:Cooling:DX,   !- Component 2 Object Type",
 			"  DOAS Cooling Coil,       !- Component 2 Name",
 			"  DOAS Mixed Air Outlet,   !- Component 2 Inlet Node Name",
 			"  DOAS Cooling Coil Outlet,!- Component 2 Outlet Node Name",
-			"  Passive,                 !- Component 2 Branch Control Type",
-			"  Coil:Heating:Gas,        !- Component 2 Object Type",
+			"  Coil:Heating:Fuel,        !- Component 2 Object Type",
 			"  DOAS Heating Coil,       !- Component 2 Name",
 			"  DOAS Cooling Coil Outlet,  !- Component 2 Inlet Node Name",
 			"  DOAS Heating Coil Outlet,!- Component 2 Outlet Node Name",
-			"  Passive,                 !- Component 2 Branch Control Type",
 			"  Fan:VariableVolume,      !- Component 3 Object Type",
 			"  DOAS Supply Fan,         !- Component 3 Name",
 			"  DOAS Heating Coil Outlet,!- Component 3 Inlet Node Name",
-			"  DOAS Supply Fan Outlet,  !- Component 3 Outlet Node Name",
-			"  Active;                  !- Component 3 Branch Control Type",
+			"  DOAS Supply Fan Outlet;  !- Component 3 Outlet Node Name",
 
 			"AirLoopHVAC:SupplyPath,",
 			"  DOAS Supply Path,        !- Name",
@@ -1867,9 +1870,10 @@ namespace EnergyPlus {
 			"	0.0,                   !- Crankcase Heater Capacity",
 			"	10.0;                  !- Maximum Outdoor DryBulb Temperature for Crankcase Heater Operation",
 
-			"Coil:Heating:Gas,",
+			"Coil:Heating:Fuel,",
 			"  DOAS Heating Coil,       !- Name",
 			"  AvailSched,              !- Availability Schedule Name",
+			"  Gas,                     !- Fuel Type",
 			"  0.8,                     !- Gas Burner Efficiency",
 			"  autosize,                !- Nominal Capacity {W}",
 			"  DOAS Cooling Coil Outlet,  !- Air Inlet Node Name",

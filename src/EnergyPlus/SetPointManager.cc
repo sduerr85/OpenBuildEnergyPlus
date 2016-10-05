@@ -529,6 +529,22 @@ namespace SetPointManager {
 	void
 	GetSetPointManagerInputs()
 	{
+		// wrapper for GetInput to allow unit testing when fatal inputs are detected
+		static bool ErrorsFound( false );
+		static std::string const RoutineName( "GetSetPointManagerInputs: " ); // include trailing blank space
+
+		GetSetPointManagerInputData( ErrorsFound );
+
+		if ( ErrorsFound ) {
+			ShowFatalError( RoutineName + "Errors found in input.  Program terminates." );
+		}
+
+	}
+
+	void
+	GetSetPointManagerInputData( 
+		bool & ErrorsFound )
+	{
 
 		// SUBROUTINE INFORMATION:
 		//       AUTHOR         Fred Buhl
@@ -617,7 +633,6 @@ namespace SetPointManager {
 		int ZoneNum; // loop index for zone nodes
 		int NumNodes;
 		Array1D_int NodeNums;
-		static bool ErrorsFound( false );
 		bool IsNotOK; // Flag to verify name
 		bool IsBlank; // Flag for blank name
 		static bool NodeListError( false );
@@ -1371,21 +1386,8 @@ namespace SetPointManager {
 			SZMinHumSetPtMgr( SetPtMgrNum ).CtrlVarType = "MinimumHumidityRatio";
 			SZMinHumSetPtMgr( SetPtMgrNum ).CtrlTypeMode = iCtrlVarType_MinHumRat;
 
-			if ( cAlphaArgs( 2 ) != "" ) {
-				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", invalid field." );
-				ShowContinueError( "..invalid " + cAlphaFieldNames( 2 ) + "=\"" + cAlphaArgs( 2 ) + "\"." );
-				ShowContinueError( "Deprecated Field in Object.  Please leave blank." );
-				ShowContinueError( "Please note that this field in this object will be deleted in future versions." );
-			}
-			if ( cAlphaArgs( 3 ) != "" ) {
-				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", invalid field." );
-				ShowContinueError( "..invalid " + cAlphaFieldNames( 3 ) + "=\"" + cAlphaArgs( 3 ) + "\"." );
-				ShowContinueError( "Deprecated Field in Object.  Please leave blank." );
-				ShowContinueError( "Please note that this field in this object will be deleted in future versions." );
-			}
-
 			NodeListError = false;
-			GetNodeNums( cAlphaArgs( 4 ), NumNodes, NodeNums, NodeListError, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_SetPoint, 1, ObjectIsNotParent, _, cAlphaFieldNames( 4 ) ); // nodes whose min humidity ratio will be set
+			GetNodeNums( cAlphaArgs( 2 ), NumNodes, NodeNums, NodeListError, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_SetPoint, 1, ObjectIsNotParent, _, cAlphaFieldNames( 4 ) ); // nodes whose min humidity ratio will be set
 			if ( ! NodeListError ) {
 				NumNodesCtrld = NumNodes;
 				SZMinHumSetPtMgr( SetPtMgrNum ).CtrlNodes.allocate( NumNodesCtrld );
@@ -1403,7 +1405,7 @@ namespace SetPointManager {
 			}
 
 			ErrInList = false;
-			GetNodeNums( cAlphaArgs( 5 ), NumNodes, NodeNums, ErrInList, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_Sensor, 1, ObjectIsNotParent, _, cAlphaFieldNames( 5 ) ); // nodes of zones whose humidity is being controlled
+			GetNodeNums( cAlphaArgs( 3 ), NumNodes, NodeNums, ErrInList, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_Sensor, 1, ObjectIsNotParent, _, cAlphaFieldNames( 3 ) ); // nodes of zones whose humidity is being controlled
 			if ( ErrInList ) {
 				//    CALL ShowSevereError(RoutineName//TRIM(cCurrentModuleObject)//'="'//TRIM(cAlphaArgs(1))//  &
 				//       '", invalid field.')
@@ -1415,7 +1417,7 @@ namespace SetPointManager {
 			// only allow one control zone for now
 			if ( NumNodes > 1 ) {
 				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", entered nodelist." );
-				ShowContinueError( "..invalid " + cAlphaFieldNames( 5 ) + "=\"" + cAlphaArgs( 5 ) + "\"." );
+				ShowContinueError( "..invalid " + cAlphaFieldNames( 3 ) + "=\"" + cAlphaArgs( 3 ) + "\"." );
 				ShowContinueError( "..only one control zone is allowed." );
 				ErrorsFound = true;
 			}
@@ -1462,21 +1464,8 @@ namespace SetPointManager {
 			SZMaxHumSetPtMgr( SetPtMgrNum ).CtrlVarType = "MaximumHumidityRatio";
 			SZMaxHumSetPtMgr( SetPtMgrNum ).CtrlTypeMode = iCtrlVarType_MaxHumRat;
 
-			if ( cAlphaArgs( 2 ) != "" ) {
-				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", invalid field." );
-				ShowContinueError( "..invalid " + cAlphaFieldNames( 2 ) + "=\"" + cAlphaArgs( 2 ) + "\"." );
-				ShowContinueError( "Deprecated Field in Object.  Please leave blank." );
-				ShowContinueError( "Please note that this field in this object will be deleted in future versions." );
-			}
-			if ( cAlphaArgs( 3 ) != "" ) {
-				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", invalid field." );
-				ShowContinueError( "..invalid " + cAlphaFieldNames( 3 ) + "=\"" + cAlphaArgs( 3 ) + "\"." );
-				ShowContinueError( "Deprecated Field in Object.  Please leave blank." );
-				ShowContinueError( "Please note that this field in this object will be deleted in future versions." );
-			}
-
 			NodeListError = false;
-			GetNodeNums( cAlphaArgs( 4 ), NumNodes, NodeNums, NodeListError, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_SetPoint, 1, ObjectIsNotParent, _, cAlphaFieldNames( 4 ) ); // nodes whose max humidity ratio will be set
+			GetNodeNums( cAlphaArgs( 2 ), NumNodes, NodeNums, NodeListError, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_SetPoint, 1, ObjectIsNotParent, _, cAlphaFieldNames( 2 ) ); // nodes whose max humidity ratio will be set
 			if ( ! NodeListError ) {
 				NumNodesCtrld = NumNodes;
 				SZMaxHumSetPtMgr( SetPtMgrNum ).CtrlNodes.allocate( NumNodesCtrld );
@@ -1494,7 +1483,7 @@ namespace SetPointManager {
 			}
 
 			ErrInList = false;
-			GetNodeNums( cAlphaArgs( 5 ), NumNodes, NodeNums, ErrInList, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_Sensor, 1, ObjectIsNotParent, _, cAlphaFieldNames( 5 ) ); // nodes of zones whose humidity is being controlled
+			GetNodeNums( cAlphaArgs( 3 ), NumNodes, NodeNums, ErrInList, NodeType_Air, cCurrentModuleObject, cAlphaArgs( 1 ), NodeConnectionType_Sensor, 1, ObjectIsNotParent, _, cAlphaFieldNames( 3 ) ); // nodes of zones whose humidity is being controlled
 			if ( ErrInList ) {
 				//    CALL ShowSevereError(RoutineName//TRIM(cCurrentModuleObject)//'="'//TRIM(cAlphaArgs(1))//  &
 				//       '", invalid field.')
@@ -1585,14 +1574,14 @@ namespace SetPointManager {
 
 			Found = FindNumberInList( MixedAirSetPtMgr( SetPtMgrNum ).RefNode, MixedAirSetPtMgr( SetPtMgrNum ).CtrlNodes, MixedAirSetPtMgr( SetPtMgrNum ).NumCtrlNodes );
 			if ( Found > 0 ) {
+				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 				if ( MixedAirSetPtMgr( SetPtMgrNum ).NumCtrlNodes > 1 ) {
-					ShowWarningError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 					ShowContinueError( "..Reference Node is the same as one of the nodes in SetPoint NodeList" );
 				} else {
-					ShowWarningError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 					ShowContinueError( "..Reference Node is the same as the SetPoint Node" );
 				}
 				ShowContinueError( "Reference Node Name=\"" + NodeID( MixedAirSetPtMgr( SetPtMgrNum ).RefNode ) + "\"." );
+				ErrorsFound = true;
 			}
 
 			AllSetPtMgrNum = SetPtMgrNum + NumSchSetPtMgrs + NumDualSchSetPtMgrs + NumOutAirSetPtMgrs + NumSZRhSetPtMgrs + NumSZHtSetPtMgrs + NumSZClSetPtMgrs + NumSZMinHumSetPtMgrs + NumSZMaxHumSetPtMgrs;
@@ -1704,14 +1693,14 @@ namespace SetPointManager {
 
 			Found = FindNumberInList( OAPretreatSetPtMgr( SetPtMgrNum ).RefNode, OAPretreatSetPtMgr( SetPtMgrNum ).CtrlNodes, OAPretreatSetPtMgr( SetPtMgrNum ).NumCtrlNodes );
 			if ( Found > 0 ) {
+				ShowSevereError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 				if ( OAPretreatSetPtMgr( SetPtMgrNum ).NumCtrlNodes > 1 ) {
-					ShowWarningError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 					ShowContinueError( "..Reference Node is the same as one of the nodes in SetPoint NodeList" );
 				} else {
-					ShowWarningError( RoutineName + cCurrentModuleObject + "=\"" + cAlphaArgs( 1 ) + "\", reference node." );
 					ShowContinueError( "..Reference Node is the same as the SetPoint Node" );
 				}
 				ShowContinueError( "Reference Node Name=\"" + NodeID( OAPretreatSetPtMgr( SetPtMgrNum ).RefNode ) + "\"." );
+				ErrorsFound = true;
 			}
 
 			AllSetPtMgrNum = SetPtMgrNum + NumSchSetPtMgrs + NumDualSchSetPtMgrs + NumOutAirSetPtMgrs + NumSZRhSetPtMgrs + NumSZHtSetPtMgrs + NumSZClSetPtMgrs + NumSZMinHumSetPtMgrs + NumSZMaxHumSetPtMgrs + NumMixedAirSetPtMgrs;
@@ -2658,10 +2647,6 @@ namespace SetPointManager {
 
 		}
 
-		if ( ErrorsFound ) {
-			ShowFatalError( RoutineName + "Errors found in input.  Program terminates." );
-		}
-
 		for ( SetPtMgrNum = 1; SetPtMgrNum <= NumWarmestSetPtMgrsTempFlow; ++SetPtMgrNum ) {
 			SetupOutputVariable( "Setpoint Manager Warmest Temperature Critical Zone Number []", WarmestSetPtMgrTempFlow( SetPtMgrNum ).CritZoneNum, "System", "Average", WarmestSetPtMgrTempFlow( SetPtMgrNum ).Name );
 			SetupOutputVariable( "Setpoint Manager Warmest Temperature Turndown Flow Fraction []", WarmestSetPtMgrTempFlow( SetPtMgrNum ).Turndown, "System", "Average", WarmestSetPtMgrTempFlow( SetPtMgrNum ).Name );
@@ -3060,10 +3045,6 @@ namespace SetPointManager {
 		cNumericFieldNames.deallocate();
 		rNumericArgs.deallocate();
 		lNumericFieldBlanks.deallocate();
-
-		if ( ErrorsFound ) {
-			ShowFatalError( RoutineName + "Errors found in input.  Program terminates." );
-		}
 
 	}
 
