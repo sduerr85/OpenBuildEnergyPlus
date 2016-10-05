@@ -600,7 +600,7 @@ namespace ExternalInterface {
 		static int nOutVal; // Number of output values (E+ -> ExternalInterface)
 		static int nInpVar; // Number of input values (ExternalInterface -> E+)
 		int retVal; // Return value of function call, used for error handling
-		int mainVersion; // The version number
+		// int mainVersion; // The version number
 		bool socFileExist; // Set to true if socket configuration
 		// file exists
 		bool simFileExist; // Set to true if simulation configuration
