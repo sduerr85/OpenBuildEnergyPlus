@@ -18,6 +18,7 @@ OBN_WORKSPACE=""
 OBN_QUITIFSTOP=NO
 NEED_HELP=NO
 OBN_DIRECTORY=""
+EPLUS_OUTPUTFILE = ""
 
 # Show help
 function show_help {
@@ -28,6 +29,75 @@ function show_help {
   echo '           [-m|--mqtt <MQTT broker address>]'
   echo '           [--quitifstop] [-h|--help]'
   echo '           [-d|--dir <working directory>]'
+  echo '           [-o|--output <output file>]'
+  echo ''
+  echo 'If the working directory does not exist, it will be created.'
+  echo 'Output file is the CSV file containing the values of the reported variables.'
+  echo 'The output file path is relative to the working directory, and all intermediate'
+  echo 'directories must already exist.'
+}
+
+# Remove old result files
+function remove_old_files {
+	rm -f  eplusout.end
+	rm -f  eplusout.eso
+	rm -f  eplusout.rdd
+	rm -f  eplusout.edd
+	rm -f  eplusout.mdd
+	rm -f  eplusout.dbg
+	rm -f  eplusout.eio
+	rm -f  eplusout.err
+	rm -f  eplusout.dxf
+	rm -f  eplusout.csv
+	rm -f  eplusout.tab
+	rm -f  eplusout.txt
+	rm -f  eplusmtr.csv
+	rm -f  eplusmtr.tab
+	rm -f  eplusmtr.txt
+	rm -f  eplusout.sln
+	rm -f  epluszsz.csv
+	rm -f  epluszsz.tab
+	rm -f  epluszsz.txt
+	rm -f  eplusssz.csv
+	rm -f  eplusssz.tab
+	rm -f  eplusssz.txt
+	rm -f  eplusout.mtr
+	rm -f  eplusout.mtd
+	rm -f  eplusout.cif
+	rm -f  eplusout.bnd
+	rm -f  eplusout.dbg
+	rm -f  eplusout.sci
+	rm -f  eplusout.cfp
+	rm -f  eplusmap.csv
+	rm -f  eplusmap.txt
+	rm -f  eplusmap.tab
+	rm -f  eplustbl.csv
+	rm -f  eplustbl.txt
+	rm -f  eplustbl.tab
+	rm -f  eplustbl.htm
+	rm -f  eplusout.log
+	rm -f  eplusout.svg
+	rm -f  eplusout.shd
+	rm -f  eplusout.wrl
+	rm -f  eplusoutscreen.csv
+	rm -f  eplusout.delightin
+	rm -f  eplusout.delightout
+	rm -f  eplusout.delighteldmp
+	rm -f  eplusout.delightdfdmp
+	rm -f  eplusout.sparklog
+	rm -f  in.imf
+	rm -f  in.idf
+	rm -f  out.idf
+	rm -f  eplusout.inp
+	rm -f  in.epw
+	rm -f  eplusout.audit
+	rm -f  eplusmtr.inp
+	rm -f  expanded.idf
+	rm -f  expandedidf.err
+	rm -f  readvars.audit
+
+	rm -f  eplusout.sql
+	rm -f  sqlite.err
 }
 
 while [[ $# -gt 0 ]]
@@ -59,6 +129,10 @@ case $key in
     OBN_DIRECTORY="$2"
     shift 2
     ;;
+	-o|--output)
+	EPLUS_OUTPUTFILE="$2"
+	shift 2
+	;;
     -h|--help)
     NEED_HELP=YES
     shift 1
@@ -87,9 +161,12 @@ fi
 
 # Change to the working directory if requested
 if [[ "${OBN_DIRECTORY}" != "" ]]; then
-  echo Change to working directory "${OBN_DIRECTORY}"
+  echo Change to working directory: "${OBN_DIRECTORY}"
   cd "${OBN_DIRECTORY}"
 fi
+
+# Remove old files
+remove_old_files
 
 # Create the openbuildnet.cfg file
 printf "mqtt %s\n%s %s\n" "$MQTTSERVERADDRESS" "$OBN_NODENAME" "$OBN_WORKSPACE" > openbuildnet.cfg
@@ -107,3 +184,20 @@ echo Workspace: "${OBN_WORKSPACE}"
 echo Quit if OBN stops: "${OBN_QUITIFSTOP}"
 
 energyplus -w "${WEATHER_FILE}" "${IDF_FILE}"
+
+# Generate the output file if requested
+if [[ "${EPLUS_OUTPUTFILE}" != "" ]]; then
+	echo Generating output file: "${EPLUS_OUTPUTFILE}"
+	
+	echo eplusout.eso >eplusout.inp
+	echo eplusout.csv >>eplusout.inp
+
+	ReadVarsESO eplusout.inp unlimited
+	if [ -f eplusout.csv ]; then
+		mv -f eplusout.csv ${EPLUS_OUTPUTFILE}
+	else
+		echo Failed to create output CSV file!
+	fi
+fi
+
+	
