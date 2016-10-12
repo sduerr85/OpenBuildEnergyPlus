@@ -18,7 +18,7 @@ OBN_WORKSPACE=""
 OBN_QUITIFSTOP=NO
 NEED_HELP=NO
 OBN_DIRECTORY=""
-EPLUS_OUTPUTFILE = ""
+EPLUS_OUTPUTFILE=""
 
 # Show help
 function show_help {
@@ -161,8 +161,12 @@ fi
 
 # Change to the working directory if requested
 if [[ "${OBN_DIRECTORY}" != "" ]]; then
-  echo Change to working directory: "${OBN_DIRECTORY}"
-  cd "${OBN_DIRECTORY}"
+	echo Change to working directory: "${OBN_DIRECTORY}"
+	if [ ! -d "$OBN_DIRECTORY" ]; then
+		# Create the directory
+		mkdir -p $OBN_DIRECTORY
+	fi
+	cd "${OBN_DIRECTORY}"
 fi
 
 # Remove old files
