@@ -19,6 +19,7 @@ OBN_QUITIFSTOP=NO
 NEED_HELP=NO
 OBN_DIRECTORY=""
 EPLUS_OUTPUTFILE=""
+OBN_VARIABLES=""
 
 # Show help
 function show_help {
@@ -26,6 +27,7 @@ function show_help {
   echo Syntax:
   echo '  obneplus -n|--node <node name> [--workspace <workspace name>]'
   echo '           [-f|--file <IDF file>] [-w|--weather <weather file>]'
+  echo '           [-v|--variables <variables file>]'
   echo '           [-m|--mqtt <MQTT broker address>]'
   echo '           [--quitifstop] [-h|--help]'
   echo '           [-d|--dir <working directory>]'
@@ -125,6 +127,10 @@ case $key in
     OBN_WORKSPACE="$2"
     shift 2
     ;;
+    -v|--variables)
+    OBN_VARIABLES="$2"
+    shift 2
+    ;;
     -d|--dir)
     OBN_DIRECTORY="$2"
     shift 2
@@ -171,6 +177,14 @@ fi
 
 # Remove old files
 remove_old_files
+
+# Copy variables.cfg file if requested
+if [[ "${OBN_VARIABLES}" != "" ]]; then
+	if [ -f "$OBN_VARIABLES" ]; then
+		echo Copy variables list from file: $OBN_VARIABLES
+		cp $OBN_VARIABLES ./variables.cfg
+	fi
+fi
 
 # Create the openbuildnet.cfg file
 printf "mqtt %s\n%s %s\n" "$MQTTSERVERADDRESS" "$OBN_NODENAME" "$OBN_WORKSPACE" > openbuildnet.cfg
